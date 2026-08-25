@@ -4,6 +4,44 @@
 
 @layer base {
   body {
-    @apply antialiased bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+    @apply antialiased bg-slate-50 text-slate-900 dark:bg-[#0a0a0c] dark:text-slate-100;
+  }
+
+  /* Force dark contrast on native form controls in dark mode */
+  .dark select,
+  .dark select option,
+  .dark input,
+  .dark textarea {
+    background-color: #121217;
+    color: #f1f5f9;
+  }
+
+  .dark select option {
+    background-color: #181820;
+    color: #f8fafc;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #2a2a36;
+    border-radius: 9999px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #3f3f50;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
   }
 }

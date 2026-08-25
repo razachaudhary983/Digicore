@@ -8,6 +8,7 @@ import {
   ActivityTask,
   LeadStatus,
   PaymentStatus,
+  ClientStatus,
 } from '../types/crm';
 
 interface CRMContextType {
@@ -20,24 +21,38 @@ interface CRMContextType {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
   
-  // Lead Operations (Always originated via Channels or Quick-Add)
+  // Lead Operations
   addLead: (lead: Omit<Lead, 'id' | 'createdAt'>) => Lead;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
   bulkUpdateStatus: (ids: string[], newStatus: LeadStatus) => void;
   
-  // Client & Finance Operations
+  // Client Operations
+  addClient: (client: Omit<ClientProfile, 'id'>) => ClientProfile;
+  updateClient: (id: string, updates: Partial<ClientProfile>) => void;
+  deleteClient: (id: string) => void;
   createClientFromWonLead: (lead: Lead, serviceCategory: string, monthlyRetainer: number) => ClientProfile;
+  
+  // Finance Operations
   addInvoice: (invoice: Omit<Invoice, 'id' | 'dueDate' | 'invoiceNumber'>) => Invoice;
   updateInvoiceStatus: (id: string, status: PaymentStatus) => void;
   deleteInvoice: (id: string) => void;
   
-  // Task & Action Center Operations
+  // LinkedIn Commenting Operations
+  addCommentTask: (task: Omit<LinkedInCommentTask, 'id'>) => LinkedInCommentTask;
+  toggleCommentStatus: (id: string) => void;
+  convertCommentToLead: (commentId: string, leadData?: Partial<Lead>) => void;
+  markCommentDead: (commentId: string) => void;
+  deleteCommentTask: (id: string) => void;
+  
+  // Meeting Operations
+  addMeeting: (meeting: Omit<MeetingTask, 'id'>) => MeetingTask;
+  updateMeetingOutcome: (id: string, status: MeetingTask['status'], outcome?: MeetingTask['outcome']) => void;
+  deleteMeeting: (id: string) => void;
+  
+  // Task Operations
   toggleTaskComplete: (id: string) => void;
   rescheduleTask: (id: string, newDate: string) => void;
-  addCommentTask: (task: Omit<LinkedInCommentTask, 'id'>) => void;
-  toggleCommentStatus: (id: string) => void;
-  updateMeetingOutcome: (id: string, status: MeetingTask['status'], outcome?: MeetingTask['outcome']) => void;
 }
 
 const CRMContext = createContext<CRMContextType | undefined>(undefined);
@@ -148,6 +163,7 @@ const initialInvoices: Invoice[] = [
     amount: 5000,
     sentDate: '2025-02-10',
     dueDate: '2025-02-17',
+    datePaid: '2025-02-12',
     status: 'Paid',
     paymentMethod: 'Payoneer',
     invoiceNumber: 'INV-2025-001',
@@ -170,17 +186,23 @@ const initialComments: LinkedInCommentTask[] = [
   {
     id: 'comm-1',
     leadName: 'Sarah Jenkins',
+    profileUrl: 'https://linkedin.com/in/sarahjenkins-apex',
     postUrl: 'https://linkedin.com/posts/sarahjenkins-apex_ai-healthcare-post',
     dueDate: new Date().toISOString().split('T')[0],
     status: 'Pending',
+    pipelineStatus: 'Pending',
+    company: 'Apex Health Corp',
     notes: 'Drop insightful comment regarding LLM compliance.',
   },
   {
     id: 'comm-2',
     leadName: 'Elena Rostova',
+    profileUrl: 'https://linkedin.com/in/elena-rostova',
     postUrl: 'https://linkedin.com/posts/elena-nordic-growth-post',
     dueDate: new Date().toISOString().split('T')[0],
     status: 'Completed',
+    pipelineStatus: 'Commented',
+    company: 'Nordic FinTech',
     notes: 'Praised their Series B announcement.',
   }
 ];
@@ -195,7 +217,7 @@ const initialMeetings: MeetingTask[] = [
     time: '15:30',
     status: 'Booked',
     outcome: 'Pending',
-    meetingLink: 'https://meet.google.com/abc-defg-hij',
+    meetingLink: 'https://meet.google.com',
   }
 ];
 
@@ -268,7 +290,20 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [comments, setComments] = useState<LinkedInCommentTask[]>(() => {
     const saved = localStorage.getItem('digicore_comments');
-    return saved ? JSON.parse(saved) : initialComments;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Ensure profileUrl exists on each comment
+        return parsed.map((c: any) => ({
+          ...c,
+          profileUrl: c.profileUrl || `https://linkedin.com/in/${c.leadName.toLowerCase().replace(/\s+/g, '-')}`,
+          pipelineStatus: c.pipelineStatus || (c.status === 'Completed' ? 'Commented' : 'Pending'),
+        }));
+      } catch (e) {
+        return initialComments;
+      }
+    }
+    return initialComments;
   });
 
   const [meetings, setMeetings] = useState<MeetingTask[]>(() => {
@@ -305,7 +340,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('digicore_tasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  // Lead CRUD
+  // Lead CRUD & Auto Meeting Synchronization
   const addLead = (leadData: Omit<Lead, 'id' | 'createdAt'>): Lead => {
     const newLead: Lead = {
       ...leadData,
@@ -331,11 +366,60 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ]);
     }
 
+    // Auto-sync meeting if status is "Meeting Booked"
+    if (leadData.status === 'Meeting Booked') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      setMeetings(prev => [
+        {
+          id: `meet-${Date.now()}`,
+          leadId: newLead.id,
+          leadName: newLead.name,
+          company: newLead.company,
+          date: leadData.followUpDate || todayStr,
+          time: '14:00',
+          status: 'Booked',
+          outcome: 'Pending',
+          meetingLink: 'https://meet.google.com',
+        },
+        ...prev,
+      ]);
+    }
+
     return newLead;
   };
 
   const updateLead = (id: string, updates: Partial<Lead>) => {
-    setLeads(prev => prev.map(l => (l.id === id ? { ...l, ...updates } : l)));
+    setLeads(prev => {
+      const updated = prev.map(l => (l.id === id ? { ...l, ...updates } : l));
+      const targetLead = updated.find(l => l.id === id);
+
+      // If status changed to "Meeting Booked", auto-sync meeting if not already created
+      if (updates.status === 'Meeting Booked' && targetLead) {
+        setMeetings(currentMeetings => {
+          const exists = currentMeetings.some(m => m.leadId === id && m.status === 'Booked');
+          if (!exists) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            return [
+              {
+                id: `meet-${Date.now()}`,
+                leadId: targetLead.id,
+                leadName: targetLead.name,
+                company: targetLead.company,
+                date: targetLead.followUpDate || todayStr,
+                time: '15:00',
+                status: 'Booked',
+                outcome: 'Pending',
+                meetingLink: 'https://meet.google.com',
+              },
+              ...currentMeetings,
+            ];
+          }
+          return currentMeetings;
+        });
+      }
+
+      return updated;
+    });
   };
 
   const deleteLead = (id: string) => {
@@ -350,7 +434,24 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  // Clients & Finance
+  // Client Operations
+  const addClient = (clientData: Omit<ClientProfile, 'id'>): ClientProfile => {
+    const newClient: ClientProfile = {
+      ...clientData,
+      id: `cli-${Date.now()}`,
+    };
+    setClients(prev => [newClient, ...prev]);
+    return newClient;
+  };
+
+  const updateClient = (id: string, updates: Partial<ClientProfile>) => {
+    setClients(prev => prev.map(c => (c.id === id ? { ...c, ...updates } : c)));
+  };
+
+  const deleteClient = (id: string) => {
+    setClients(prev => prev.filter(c => c.id !== id));
+  };
+
   const createClientFromWonLead = (
     lead: Lead,
     serviceCategory: string,
@@ -370,7 +471,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setClients(prev => [newClient, ...prev]);
 
-    // Auto generate 1st month invoice
+    // Auto generate 1st month invoice (due in 7 days)
     const today = new Date();
     const dueDate = new Date();
     dueDate.setDate(today.getDate() + 7);
@@ -392,6 +493,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newClient;
   };
 
+  // Invoices & Finance
   const addInvoice = (inv: Omit<Invoice, 'id' | 'dueDate' | 'invoiceNumber'>): Invoice => {
     const sent = new Date(inv.sentDate);
     const due = new Date(sent);
@@ -401,6 +503,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...inv,
       id: `inv-${Date.now()}`,
       dueDate: due.toISOString().split('T')[0],
+      datePaid: inv.status === 'Paid' ? (inv.datePaid || new Date().toISOString().split('T')[0]) : undefined,
       invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
     };
     setInvoices(prev => [newInv, ...prev]);
@@ -408,36 +511,112 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateInvoiceStatus = (id: string, status: PaymentStatus) => {
-    setInvoices(prev => prev.map(inv => (inv.id === id ? { ...inv, status } : inv)));
+    setInvoices(prev =>
+      prev.map(inv => {
+        if (inv.id === id) {
+          return {
+            ...inv,
+            status,
+            datePaid: status === 'Paid' ? (inv.datePaid || new Date().toISOString().split('T')[0]) : undefined,
+          };
+        }
+        return inv;
+      })
+    );
   };
 
   const deleteInvoice = (id: string) => {
     setInvoices(prev => prev.filter(inv => inv.id !== id));
   };
 
-  // Action Center
-  const toggleTaskComplete = (id: string) => {
-    setTasks(prev =>
-      prev.map(t => (t.id === id ? { ...t, completed: !t.completed } : t))
-    );
-  };
-
-  const rescheduleTask = (id: string, newDate: string) => {
-    setTasks(prev =>
-      prev.map(t => (t.id === id ? { ...t, dueDate: newDate, completed: false } : t))
-    );
-  };
-
-  const addCommentTask = (task: Omit<LinkedInCommentTask, 'id'>) => {
-    setComments(prev => [{ ...task, id: `comm-${Date.now()}` }, ...prev]);
+  // LinkedIn Comment Operations
+  const addCommentTask = (task: Omit<LinkedInCommentTask, 'id'>): LinkedInCommentTask => {
+    const newTask: LinkedInCommentTask = {
+      ...task,
+      id: `comm-${Date.now()}`,
+      profileUrl: task.profileUrl || `https://linkedin.com/in/${task.leadName.toLowerCase().replace(/\s+/g, '-')}`,
+      pipelineStatus: task.pipelineStatus || 'Pending',
+    };
+    setComments(prev => [newTask, ...prev]);
+    return newTask;
   };
 
   const toggleCommentStatus = (id: string) => {
     setComments(prev =>
-      prev.map(c =>
-        c.id === id ? { ...c, status: c.status === 'Completed' ? 'Pending' : 'Completed' } : c
-      )
+      prev.map(c => {
+        if (c.id === id) {
+          const nextStatus = c.status === 'Completed' ? 'Pending' : 'Completed';
+          return {
+            ...c,
+            status: nextStatus,
+            pipelineStatus: nextStatus === 'Completed' ? 'Commented' : 'Pending',
+          };
+        }
+        return c;
+      })
     );
+  };
+
+  const convertCommentToLead = (commentId: string, leadData?: Partial<Lead>) => {
+    const targetComment = comments.find(c => c.id === commentId);
+    if (!targetComment) return;
+
+    // Create lead
+    addLead({
+      name: targetComment.leadName,
+      company: targetComment.company || `${targetComment.leadName}'s Org`,
+      linkedInUrl: targetComment.profileUrl,
+      channel: 'LinkedIn',
+      temperature: leadData?.temperature || 'Warm',
+      status: leadData?.status || 'Qualified',
+      estimatedValue: leadData?.estimatedValue || 3500,
+      followUpDate: new Date().toISOString().split('T')[0],
+      notes: targetComment.notes ? `Converted from comment engagement: ${targetComment.notes}` : 'Converted from LinkedIn comment.',
+    });
+
+    // Update comment pipeline status
+    setComments(prev =>
+      prev.map(c => (c.id === commentId ? { ...c, pipelineStatus: 'Converted to Lead', status: 'Completed' } : c))
+    );
+  };
+
+  const markCommentDead = (commentId: string) => {
+    setComments(prev =>
+      prev.map(c => (c.id === commentId ? { ...c, pipelineStatus: 'Dead', status: 'Completed' } : c))
+    );
+  };
+
+  const deleteCommentTask = (id: string) => {
+    setComments(prev => prev.filter(c => c.id !== id));
+  };
+
+  // Meeting Operations
+  const addMeeting = (meetingData: Omit<MeetingTask, 'id'>): MeetingTask => {
+    const newMeeting: MeetingTask = {
+      ...meetingData,
+      id: `meet-${Date.now()}`,
+      meetingLink: meetingData.meetingLink || 'https://meet.google.com',
+      status: meetingData.status || 'Booked',
+      outcome: meetingData.outcome || 'Pending',
+    };
+    setMeetings(prev => [newMeeting, ...prev]);
+
+    // Also add to tasks
+    setTasks(prev => [
+      {
+        id: `task-${Date.now()}`,
+        leadId: meetingData.leadId,
+        leadName: meetingData.leadName,
+        type: 'Meeting',
+        dueDate: meetingData.date,
+        completed: false,
+        priority: 'High',
+        details: `Scheduled Pitch / Demo Call (${meetingData.time})`,
+      },
+      ...prev,
+    ]);
+
+    return newMeeting;
   };
 
   const updateMeetingOutcome = (
@@ -447,6 +626,23 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ) => {
     setMeetings(prev =>
       prev.map(m => (m.id === id ? { ...m, status, outcome: outcome || m.outcome } : m))
+    );
+  };
+
+  const deleteMeeting = (id: string) => {
+    setMeetings(prev => prev.filter(m => m.id !== id));
+  };
+
+  // Action Center Operations
+  const toggleTaskComplete = (id: string) => {
+    setTasks(prev =>
+      prev.map(t => (t.id === id ? { ...t, completed: !t.completed } : t))
+    );
+  };
+
+  const rescheduleTask = (id: string, newDate: string) => {
+    setTasks(prev =>
+      prev.map(t => (t.id === id ? { ...t, dueDate: newDate, completed: false } : t))
     );
   };
 
@@ -465,15 +661,23 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateLead,
         deleteLead,
         bulkUpdateStatus,
+        addClient,
+        updateClient,
+        deleteClient,
         createClientFromWonLead,
         addInvoice,
         updateInvoiceStatus,
         deleteInvoice,
-        toggleTaskComplete,
-        rescheduleTask,
         addCommentTask,
         toggleCommentStatus,
+        convertCommentToLead,
+        markCommentDead,
+        deleteCommentTask,
+        addMeeting,
         updateMeetingOutcome,
+        deleteMeeting,
+        toggleTaskComplete,
+        rescheduleTask,
       }}
     >
       {children}

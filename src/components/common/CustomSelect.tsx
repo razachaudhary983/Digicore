@@ -31,7 +31,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
         {label} {required && <span className="text-rose-500">*</span>}
       </label>
 
@@ -39,15 +39,19 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         <select
           value={options.includes(value) ? value : '__custom__'}
           onChange={handleSelectChange}
-          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full bg-white dark:bg-[#181820] border border-slate-300 dark:border-[#2a2a36] text-slate-900 dark:text-slate-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#FFC700] focus:ring-1 focus:ring-[#FFC700]"
         >
-          <option value="" disabled>Select {label}</option>
+          <option value="" disabled className="bg-white dark:bg-[#181820] text-slate-500">
+            Select {label}
+          </option>
           {options.map(opt => (
-            <option key={opt} value={opt}>
+            <option key={opt} value={opt} className="bg-white dark:bg-[#181820] text-slate-900 dark:text-slate-100">
               {opt}
             </option>
           ))}
-          <option value="__custom__">✨ + Type Your Own / Custom...</option>
+          <option value="__custom__" className="bg-white dark:bg-[#181820] text-[#FFC700] font-semibold">
+            ✨ + Type Custom / Other...
+          </option>
         </select>
       ) : (
         <div className="flex items-center gap-1.5">
@@ -60,13 +64,13 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
               onChange(e.target.value);
             }}
             autoFocus
-            className="flex-1 bg-white dark:bg-slate-900 border border-indigo-500 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="flex-1 bg-white dark:bg-[#181820] border border-[#FFC700] text-slate-900 dark:text-slate-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#FFC700]"
           />
           <button
             type="button"
             onClick={() => setIsCustom(false)}
             title="Switch back to presets"
-            className="px-2.5 py-2 text-xs font-medium bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700"
+            className="px-2.5 py-2 text-xs font-semibold bg-slate-200 dark:bg-[#252533] text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-300 dark:hover:bg-[#2f2f42] cursor-pointer"
           >
             Presets
           </button>

@@ -45,6 +45,8 @@ export type PaymentMethod =
 
 export type PaymentStatus = 'Paid' | 'Pending' | 'Overdue';
 
+export type ClientStatus = 'Active' | 'Dead' | 'Paused';
+
 export interface EngagementLog {
   id: string;
   leadId: string;
@@ -56,15 +58,18 @@ export interface EngagementLog {
 export interface LinkedInCommentTask {
   id: string;
   leadName: string;
-  postUrl: string;
+  profileUrl: string; // Direct Profile Link
+  postUrl?: string;
   dueDate: string;
   status: 'Pending' | 'Completed' | 'Skipped';
+  pipelineStatus?: 'Pending' | 'Commented' | 'Converted to Lead' | 'Dead';
   notes?: string;
+  company?: string;
 }
 
 export interface MeetingTask {
   id: string;
-  leadId: string;
+  leadId?: string;
   leadName: string;
   company: string;
   date: string;
@@ -114,7 +119,7 @@ export interface ClientProfile {
   serviceCategory: ServicePillar;
   monthlyRetainer: number;
   startDate: string;
-  status: 'Active' | 'Paused' | 'Terminated';
+  status: ClientStatus;
 }
 
 export interface Invoice {
@@ -125,6 +130,7 @@ export interface Invoice {
   amount: number;
   sentDate: string;
   dueDate: string; // Sent date + 7 days
+  datePaid?: string; // Captured when status is marked Paid
   status: PaymentStatus;
   paymentMethod: PaymentMethod;
   invoiceNumber: string;

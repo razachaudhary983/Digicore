@@ -40,33 +40,33 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-slate-950/80 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-black/80 backdrop-blur-md"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-2xl bg-white dark:bg-[#121217] border border-slate-200 dark:border-[#23232c] rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >
         {/* Search Bar */}
-        <div className="flex items-center px-4 py-3 border-b border-slate-200 dark:border-slate-800 gap-3">
-          <Search className="w-5 h-5 text-indigo-500" />
+        <div className="flex items-center px-4 py-3.5 border-b border-slate-200 dark:border-[#23232c] gap-3">
+          <Search className="w-5 h-5 text-[#FFC700]" />
           <input
             type="text"
             placeholder="Search leads, clients, company, phone, email... (ESC to close)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
-            className="w-full bg-transparent text-slate-900 dark:text-white placeholder-slate-400 text-base focus:outline-none"
+            className="w-full bg-transparent text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none"
           />
-          <kbd className="hidden sm:inline-block px-2 py-0.5 text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 rounded border border-slate-300 dark:border-slate-700">
+          <kbd className="hidden sm:inline-block px-2 py-0.5 text-xs text-slate-400 bg-slate-100 dark:bg-[#181820] rounded-lg border border-slate-300 dark:border-[#2a2a36]">
             ESC
           </kbd>
         </div>
 
         {/* Results List */}
-        <div className="max-h-96 overflow-y-auto p-2 divide-y divide-slate-100 dark:divide-slate-800/50">
+        <div className="max-h-96 overflow-y-auto p-2 divide-y divide-slate-100 dark:divide-[#23232c]">
           {filteredLeads.length === 0 && filteredClients.length === 0 && (
-            <div className="py-12 text-center text-slate-400 text-sm">
+            <div className="py-12 text-center text-slate-400 text-xs">
               No matching records found for "{query}"
             </div>
           )}
@@ -80,20 +80,20 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
                 {filteredLeads.map(lead => (
                   <div
                     key={lead.id}
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 cursor-pointer transition-colors group"
+                    className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-[#181820] cursor-pointer transition-colors group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-semibold text-sm">
+                      <div className="w-8 h-8 rounded-xl bg-[#FFC700]/15 text-[#FFC700] flex items-center justify-center font-bold text-xs">
                         {lead.name[0]}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">
                             {lead.name}
                           </p>
-                          <span className="text-xs text-slate-400">· {lead.company}</span>
+                          <span className="text-[11px] text-slate-400">· {lead.company}</span>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           {lead.email || lead.phone || 'No direct contact'} · Source: {lead.channel}
                         </p>
                       </div>
@@ -117,23 +117,23 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
                 {filteredClients.map(client => (
                   <div
                     key={client.id}
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 cursor-pointer transition-colors"
+                    className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-[#181820] cursor-pointer transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-semibold text-sm">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center font-bold text-xs">
                         <Building className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">
                           {client.company}
                         </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           Contact: {client.name} · {client.serviceCategory}
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs font-semibold text-emerald-500 font-mono">
-                      ${client.monthlyRetainer.toLocaleString()}/mo
+                    <span className="text-xs font-bold text-emerald-500 font-mono">
+                      PKR {client.monthlyRetainer.toLocaleString()}/mo
                     </span>
                   </div>
                 ))}
