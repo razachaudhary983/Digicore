@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CRMProvider } from './context/CRMContext';
 import { LoginScreen } from './components/auth/LoginScreen';
+import { LockScreenOverlay } from './components/auth/LockScreenOverlay';
 import { Sidebar } from './components/layout/Sidebar';
 import { TopHeader } from './components/layout/TopHeader';
 import { CommandPalette } from './components/layout/CommandPalette';
@@ -13,7 +14,7 @@ import { FinanceManager } from './components/finance/FinanceManager';
 import { QuickActionFAB } from './components/common/QuickActionFAB';
 
 function CRMApp() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAuthLoading, isLocked } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('daily');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -30,13 +31,30 @@ function CRMApp() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen w-full bg-[#0a0a0c] flex flex-col items-center justify-center text-white space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-[#FFC700] text-black font-black text-xl flex items-center justify-center shadow-lg shadow-[#FFC700]/30 animate-pulse">
+          D
+        </div>
+        <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
+          <span className="w-2 h-2 rounded-full bg-[#FFC700] animate-ping" />
+          <span>Synchronizing DigiCore Security Shield & Cloud Store...</span>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return <LoginScreen />;
   }
 
   return (
     <CRMProvider>
-      <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-[#FFC700] selection:text-black transition-colors duration-200">
+      <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-[#FFC700] selection:text-black transition-colors duration-200 relative">
+        {/* Inactivity Auto-Lock Overlay */}
+        {isLocked && <LockScreenOverlay />}
+
         {/* Navigation Sidebar */}
         <Sidebar
           activeTab={currentTab}
@@ -80,4 +98,5 @@ export default function App() {
     </AuthProvider>
   );
 }
+
 

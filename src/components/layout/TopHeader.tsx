@@ -7,6 +7,7 @@ import {
   Users,
   LogOut,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
@@ -14,7 +15,7 @@ import { UserManagementModal } from '../auth/UserManagementModal';
 
 export const TopHeader: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch }) => {
   const { leads, invoices, theme, toggleTheme } = useCRM();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, lockSession } = useAuth();
   const [showUserModal, setShowUserModal] = useState(false);
 
   // Pipeline metrics
@@ -43,7 +44,7 @@ export const TopHeader: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch
           </button>
         </div>
 
-        {/* Right: Quick Stats & User Profile Actions */}
+        {/* Right: Quick Metrics & User Profile Actions */}
         <div className="flex items-center gap-3">
           {/* Quick Metrics (Desktop) */}
           <div className="hidden lg:flex items-center gap-2">
@@ -80,6 +81,15 @@ export const TopHeader: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch
             {theme === 'dark' ? <Sun className="w-4 h-4 text-[#FFC700]" /> : <Moon className="w-4 h-4" />}
           </button>
 
+          {/* Lock Session Button */}
+          <button
+            onClick={lockSession}
+            className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-[#FFC700] hover:bg-slate-100 dark:hover:bg-[#181820] cursor-pointer transition-colors"
+            title="Lock Workspace (Auto-locks after 10 min inactivity)"
+          >
+            <Lock className="w-4 h-4" />
+          </button>
+
           {/* Admin User Management Button */}
           {currentUser?.role === 'admin' && (
             <button
@@ -110,3 +120,4 @@ export const TopHeader: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch
     </>
   );
 };
+

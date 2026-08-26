@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
-import { Shield, Lock, Mail, KeyRound, AlertCircle, CheckCircle2, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Shield, Lock, Mail, KeyRound, AlertCircle, CheckCircle2, ArrowRight, Eye, EyeOff, CheckSquare, Square, Info } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const LoginScreen: React.FC = () => {
   const { login, resetAdminPasswordWithMasterKey } = useAuth();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => {
+    return localStorage.getItem('digicore_saved_email') || '';
+  });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('digicore_remember_me') === 'true';
+  });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -19,18 +24,21 @@ export const LoginScreen: React.FC = () => {
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      const res = login(email, password);
+    try {
+      const res = await login(email, password, rememberMe);
       if (!res.success) {
         setErrorMsg(res.error || 'Authentication failed. Please check credentials.');
       }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Login encountered an unexpected error. Please try again.');
+    } finally {
       setIsLoading(false);
-    }, 250);
+    }
   };
 
   const handleMasterResetSubmit = (e: React.FormEvent) => {
@@ -156,6 +164,31 @@ export const LoginScreen: React.FC = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+            </div>
+
+            {/* Remember Me Toggle */}
+            <div className="pt-1 flex items-center justify-between">
+              <label
+                onClick={() => setRememberMe(!rememberMe)}
+                className="flex items-center gap-2 text-xs text-slate-300 hover:text-white cursor-pointer select-none group"
+              >
+                <button
+                  type="button"
+                  aria-checked={rememberMe}
+                  className={`w-4 h-4 rounded flex items-center justify-center transition-colors ${
+                    rememberMe
+                      ? 'bg-[#FFC700] text-black'
+                      : 'border border-[#3a3a48] bg-[#181820] text-transparent group-hover:border-slate-400'
+                  }`}
+                >
+                  {rememberMe && <CheckSquare className="w-3.5 h-3.5" />}
+                </button>
+                <span className="font-medium">Remember Me</span>
+              </label>
+
+              <span className="text-[11px] text-slate-400">
+                {rememberMe ? 'Persistent session' : 'Session only (auto-close)'}
+              </span>
             </div>
 
             <button

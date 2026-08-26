@@ -1,0 +1,145 @@
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "Sales and outreach lead record in DigiCore CRM",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "company": { "type": "string", "maxLength": 128 },
+        "jobTitle": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 64 },
+        "linkedInUrl": { "type": "string", "maxLength": 256 },
+        "channel": { "type": "string", "maxLength": 64 },
+        "temperature": { "type": "string", "enum": ["Hot", "Warm", "Cold"] },
+        "status": { "type": "string", "maxLength": 64 },
+        "estimatedValue": { "type": "number" },
+        "followUpDate": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 32 },
+        "notes": { "type": "string", "maxLength": 2048 }
+      },
+      "required": ["id", "name", "company", "channel", "temperature", "status", "estimatedValue"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Client invoice and financial payment tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "clientName": { "type": "string", "maxLength": 128 },
+        "service": { "type": "string", "maxLength": 256 },
+        "amount": { "type": "number" },
+        "sentDate": { "type": "string", "maxLength": 32 },
+        "dueDate": { "type": "string", "maxLength": 32 },
+        "datePaid": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["Paid", "Pending", "Overdue"] },
+        "paymentMethod": { "type": "string", "maxLength": 128 },
+        "invoiceNumber": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "clientId", "clientName", "service", "amount", "sentDate", "dueDate", "status", "paymentMethod", "invoiceNumber"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Calendar meetings and scheduled pitch calls",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "leadId": { "type": "string", "maxLength": 128 },
+        "leadName": { "type": "string", "maxLength": 128 },
+        "company": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 32 },
+        "time": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["Booked", "Completed", "No Show"] },
+        "outcome": { "type": "string", "maxLength": 64 },
+        "meetingLink": { "type": "string", "maxLength": 256 }
+      },
+      "required": ["id", "leadName", "company", "date", "time", "status"]
+    },
+    "ClientProfile": {
+      "title": "ClientProfile",
+      "description": "Active and retained agency client accounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "leadId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "company": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 64 },
+        "serviceCategory": { "type": "string", "maxLength": 128 },
+        "monthlyRetainer": { "type": "number" },
+        "startDate": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["Active", "Dead", "Paused"] }
+      },
+      "required": ["id", "name", "company", "serviceCategory", "monthlyRetainer", "startDate", "status"]
+    },
+    "LinkedInCommentTask": {
+      "title": "LinkedInCommentTask",
+      "description": "LinkedIn engagement and commenting queue",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "leadName": { "type": "string", "maxLength": 128 },
+        "profileUrl": { "type": "string", "maxLength": 256 },
+        "postUrl": { "type": "string", "maxLength": 256 },
+        "dueDate": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["Pending", "Completed", "Skipped"] },
+        "pipelineStatus": { "type": "string", "maxLength": 64 },
+        "company": { "type": "string", "maxLength": 128 },
+        "notes": { "type": "string", "maxLength": 1024 }
+      },
+      "required": ["id", "leadName", "profileUrl", "dueDate", "status"]
+    },
+    "ActivityTask": {
+      "title": "ActivityTask",
+      "description": "Daily action center activities and follow-up tasks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "leadId": { "type": "string", "maxLength": 128 },
+        "leadName": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 64 },
+        "dueDate": { "type": "string", "maxLength": 32 },
+        "completed": { "type": "boolean" },
+        "priority": { "type": "string", "enum": ["High", "Medium", "Low"] },
+        "details": { "type": "string", "maxLength": 1024 }
+      },
+      "required": ["id", "leadName", "type", "dueDate", "completed", "priority", "details"]
+    }
+  },
+  "firestore": {
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Collection of CRM leads and pipeline opportunities"
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Collection of financial invoices and payment tracking"
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Collection of scheduled calendar meetings and client demos"
+    },
+    "/clients/{clientId}": {
+      "schema": "ClientProfile",
+      "description": "Collection of active client profiles and retainers"
+    },
+    "/comments/{commentId}": {
+      "schema": "LinkedInCommentTask",
+      "description": "Collection of LinkedIn engagement and comment tasks"
+    },
+    "/tasks/{taskId}": {
+      "schema": "ActivityTask",
+      "description": "Collection of daily action tasks and reminders"
+    },
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "CRM staff and admin user profiles"
+    }
+  }
+}
