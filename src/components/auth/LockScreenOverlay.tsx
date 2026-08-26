@@ -66,7 +66,7 @@ export const LockScreenOverlay: React.FC = () => {
           </h2>
           <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
             <ShieldAlert className="w-3.5 h-3.5 text-[#FFC700]" />
-            <span>Protected after 10 minutes of inactivity</span>
+            <span>Protected after 3 minutes of inactivity</span>
           </div>
         </div>
 
@@ -158,7 +158,7 @@ export const LockScreenOverlay: React.FC = () => {
             <span>Switch Account / Sign Out</span>
           </button>
 
-          <span className="text-[11px] text-slate-400">10m Inactivity Shield</span>
+          <span className="text-[11px] text-slate-400">3m Inactivity Shield</span>
         </div>
       </div>
     </div>

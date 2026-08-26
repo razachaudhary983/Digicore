@@ -85,7 +85,7 @@ export const TopHeader: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch
           <button
             onClick={lockSession}
             className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-[#FFC700] hover:bg-slate-100 dark:hover:bg-[#181820] cursor-pointer transition-colors"
-            title="Lock Workspace (Auto-locks after 10 min inactivity)"
+            title="Lock Workspace (Auto-locks after 3 min inactivity)"
           >
             <Lock className="w-4 h-4" />
           </button>

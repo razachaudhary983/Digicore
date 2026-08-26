@@ -11,7 +11,7 @@ export const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(() => {
-    return localStorage.getItem('digicore_remember_me') === 'true';
+    return sessionStorage.getItem('digicore_remember_me') === 'true';
   });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -187,7 +187,7 @@ export const LoginScreen: React.FC = () => {
               </label>
 
               <span className="text-[11px] text-slate-400">
-                {rememberMe ? 'Persistent session' : 'Session only (auto-close)'}
+                {rememberMe ? 'Retain on refresh (auto-clears on tab close)' : 'In-memory only (clears on refresh & tab close)'}
               </span>
             </div>
 

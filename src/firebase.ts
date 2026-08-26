@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, setPersistence, browserSessionPersistence, browserLocalPersistence } from "firebase/auth";
+import { getAuth, setPersistence, browserSessionPersistence, inMemoryPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -15,9 +15,9 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Initial persistence fallback handled dynamically in AuthContext (Remember Me: local vs session)
-const isRememberedInit = typeof window !== 'undefined' && localStorage.getItem('digicore_remember_me') === 'true';
-setPersistence(auth, isRememberedInit ? browserLocalPersistence : browserSessionPersistence).catch((err) => {
+// Initial persistence: browserSessionPersistence if rememberMe in sessionStorage, else inMemoryPersistence
+const isRememberedInit = typeof window !== 'undefined' && sessionStorage.getItem('digicore_remember_me') === 'true';
+setPersistence(auth, isRememberedInit ? browserSessionPersistence : inMemoryPersistence).catch((err) => {
   console.warn("Firebase persistence configuration note:", err?.message || err);
 });
 

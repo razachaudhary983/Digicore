@@ -7,8 +7,8 @@ import {
   signOut,
   onAuthStateChanged,
   setPersistence,
-  browserLocalPersistence,
   browserSessionPersistence,
+  inMemoryPersistence,
   User as FirebaseUser,
 } from 'firebase/auth';
 import {
@@ -43,7 +43,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const MASTER_KEY = 'aliraza983';
 const DEFAULT_ADMIN_EMAIL = 'digicorepak@gmail.com';
-const IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes inactivity timer
+const IDLE_TIMEOUT_MS = 3 * 60 * 1000; // Strictly 3 minutes inactivity timer
 
 const initialUsers: User[] = [
   {
@@ -65,24 +65,21 @@ const initialUsers: User[] = [
 ];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Purge any legacy localStorage user sessions so tab closes always require fresh authentication
+  useEffect(() => {
+    localStorage.removeItem('digicore_active_user');
+    localStorage.removeItem('digicore_remember_me');
+  }, []);
+
   const [rememberMe, setRememberMe] = useState<boolean>(() => {
-    return localStorage.getItem('digicore_remember_me') === 'true';
+    return sessionStorage.getItem('digicore_remember_me') === 'true';
   });
 
   const [users, setUsers] = useState<User[]>([]);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const isRemembered = localStorage.getItem('digicore_remember_me') === 'true';
+    const isRemembered = sessionStorage.getItem('digicore_remember_me') === 'true';
     if (isRemembered) {
-      const local = localStorage.getItem('digicore_active_user');
-      if (local) {
-        try {
-          return JSON.parse(local);
-        } catch (e) {
-          return null;
-        }
-      }
-    } else {
       const session = sessionStorage.getItem('digicore_active_user');
       if (session) {
         try {
@@ -92,6 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     }
+    // If Remember Me is unchecked, do not restore on page refresh (in-memory only)
     return null;
   });
 
@@ -136,21 +134,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Firebase Auth State Listener configured with selected persistence
   useEffect(() => {
-    const isRemembered = localStorage.getItem('digicore_remember_me') === 'true';
-    const persistenceMode = isRemembered ? browserLocalPersistence : browserSessionPersistence;
+    const isRemembered = sessionStorage.getItem('digicore_remember_me') === 'true';
+    const persistenceMode = isRemembered ? browserSessionPersistence : inMemoryPersistence;
     setPersistence(auth, persistenceMode).catch(console.warn);
 
     const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
       setFirebaseUser(fbUser);
+      const isCurrentlyRemembered = sessionStorage.getItem('digicore_remember_me') === 'true';
+
       if (fbUser && fbUser.email) {
         const matchingUser = users.find(
           u => u.email.toLowerCase() === fbUser.email?.toLowerCase()
         );
         if (matchingUser) {
           setCurrentUser(matchingUser);
-          if (isRemembered) {
-            localStorage.setItem('digicore_active_user', JSON.stringify(matchingUser));
-          } else {
+          if (isCurrentlyRemembered) {
             sessionStorage.setItem('digicore_active_user', JSON.stringify(matchingUser));
           }
         } else {
@@ -162,15 +160,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: new Date().toISOString().split('T')[0],
           };
           setCurrentUser(fallbackUser);
-          if (isRemembered) {
-            localStorage.setItem('digicore_active_user', JSON.stringify(fallbackUser));
-          } else {
+          if (isCurrentlyRemembered) {
             sessionStorage.setItem('digicore_active_user', JSON.stringify(fallbackUser));
           }
         }
       } else {
-        // Check active session storage if not remembered
-        if (!isRemembered) {
+        // If Remember Me was active in sessionStorage, check fallback session
+        if (isCurrentlyRemembered) {
           const activeSession = sessionStorage.getItem('digicore_active_user');
           if (activeSession) {
             try {
@@ -182,16 +178,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setCurrentUser(null);
           }
         } else {
-          const activeLocal = localStorage.getItem('digicore_active_user');
-          if (activeLocal) {
-            try {
-              setCurrentUser(JSON.parse(activeLocal));
-            } catch (e) {
-              setCurrentUser(null);
-            }
-          } else {
-            setCurrentUser(null);
-          }
+          // In-memory mode: do not restore on reload
+          setCurrentUser(null);
         }
       }
       setIsAuthLoading(false);
@@ -202,19 +190,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Keep storage in sync with currentUser
   useEffect(() => {
-    const isRemembered = localStorage.getItem('digicore_remember_me') === 'true';
+    const isRemembered = sessionStorage.getItem('digicore_remember_me') === 'true';
     if (currentUser) {
       if (isRemembered) {
-        localStorage.setItem('digicore_active_user', JSON.stringify(currentUser));
         sessionStorage.setItem('digicore_active_user', JSON.stringify(currentUser));
       } else {
-        sessionStorage.setItem('digicore_active_user', JSON.stringify(currentUser));
-        localStorage.removeItem('digicore_active_user');
+        sessionStorage.removeItem('digicore_active_user');
       }
     } else {
       sessionStorage.removeItem('digicore_active_user');
-      localStorage.removeItem('digicore_active_user');
+      sessionStorage.removeItem('digicore_remember_me');
     }
+    localStorage.removeItem('digicore_active_user');
   }, [currentUser]);
 
   // Keep lock state synchronized with sessionStorage
@@ -234,7 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentUser]);
 
-  // Idle Inactivity Tracker (10 Minutes Auto-Lock)
+  // Idle Inactivity Tracker (3 Minutes Auto-Lock)
   const resetInactivityTimer = useCallback(() => {
     lastActivityRef.current = Date.now();
   }, []);
@@ -250,14 +237,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.addEventListener(evt, resetInactivityTimer, { passive: true });
     });
 
-    // Check inactivity every 10 seconds
+    // Check inactivity every 5 seconds for 3-minute idle threshold
     idleTimerRef.current = setInterval(() => {
       const elapsed = Date.now() - lastActivityRef.current;
       if (elapsed >= IDLE_TIMEOUT_MS) {
         setIsLocked(true);
         sessionStorage.setItem('digicore_session_locked', 'true');
       }
-    }, 10000);
+    }, 5000);
 
     return () => {
       activityEvents.forEach(evt => {
@@ -314,14 +301,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRememberMe(remember);
 
     if (remember) {
-      localStorage.setItem('digicore_remember_me', 'true');
+      sessionStorage.setItem('digicore_remember_me', 'true');
       localStorage.setItem('digicore_saved_email', cleanEmail);
     } else {
-      localStorage.removeItem('digicore_remember_me');
+      sessionStorage.removeItem('digicore_remember_me');
+      sessionStorage.removeItem('digicore_active_user');
       localStorage.removeItem('digicore_active_user');
+      localStorage.removeItem('digicore_remember_me');
     }
 
-    const persistenceType = remember ? browserLocalPersistence : browserSessionPersistence;
+    const persistenceType = remember ? browserSessionPersistence : inMemoryPersistence;
 
     try {
       // 1. Apply persistence mode
@@ -336,9 +325,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (matchingUser) {
         setCurrentUser(matchingUser);
         if (remember) {
-          localStorage.setItem('digicore_active_user', JSON.stringify(matchingUser));
+          sessionStorage.setItem('digicore_active_user', JSON.stringify(matchingUser));
         }
-        sessionStorage.setItem('digicore_active_user', JSON.stringify(matchingUser));
       } else {
         const newUserObj: User = {
           id: fbUser.uid,
@@ -349,9 +337,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         setCurrentUser(newUserObj);
         if (remember) {
-          localStorage.setItem('digicore_active_user', JSON.stringify(newUserObj));
+          sessionStorage.setItem('digicore_active_user', JSON.stringify(newUserObj));
         }
-        sessionStorage.setItem('digicore_active_user', JSON.stringify(newUserObj));
         try {
           await setDoc(doc(db, 'users', fbUser.uid), newUserObj);
         } catch (e) {
@@ -379,9 +366,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setFirebaseUser(newCred.user);
             setCurrentUser(localMatch);
             if (remember) {
-              localStorage.setItem('digicore_active_user', JSON.stringify(localMatch));
+              sessionStorage.setItem('digicore_active_user', JSON.stringify(localMatch));
             }
-            sessionStorage.setItem('digicore_active_user', JSON.stringify(localMatch));
             await setDoc(doc(db, 'users', localMatch.id), localMatch);
             setIsLocked(false);
             sessionStorage.removeItem('digicore_session_locked');
@@ -391,9 +377,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (localMatch.password === password) {
               setCurrentUser(localMatch);
               if (remember) {
-                localStorage.setItem('digicore_active_user', JSON.stringify(localMatch));
+                sessionStorage.setItem('digicore_active_user', JSON.stringify(localMatch));
               }
-              sessionStorage.setItem('digicore_active_user', JSON.stringify(localMatch));
               setIsLocked(false);
               sessionStorage.removeItem('digicore_session_locked');
               lastActivityRef.current = Date.now();
@@ -408,9 +393,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (localUser && localUser.password === password) {
         setCurrentUser(localUser);
         if (remember) {
-          localStorage.setItem('digicore_active_user', JSON.stringify(localUser));
+          sessionStorage.setItem('digicore_active_user', JSON.stringify(localUser));
         }
-        sessionStorage.setItem('digicore_active_user', JSON.stringify(localUser));
         setIsLocked(false);
         sessionStorage.removeItem('digicore_session_locked');
         lastActivityRef.current = Date.now();
@@ -436,9 +420,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentUser(null);
     setFirebaseUser(null);
     setIsLocked(false);
+    setRememberMe(false);
     sessionStorage.removeItem('digicore_active_user');
+    sessionStorage.removeItem('digicore_remember_me');
     sessionStorage.removeItem('digicore_session_locked');
     localStorage.removeItem('digicore_active_user');
+    localStorage.removeItem('digicore_remember_me');
   };
 
   const resetAdminPasswordWithMasterKey = (masterKey: string, newPassword: string): { success: boolean; error?: string } => {
@@ -466,9 +453,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (currentUser?.email.toLowerCase() === DEFAULT_ADMIN_EMAIL.toLowerCase()) {
       const updatedCurr = { ...currentUser, password: newPassword };
       setCurrentUser(updatedCurr);
-      sessionStorage.setItem('digicore_active_user', JSON.stringify(updatedCurr));
-      if (localStorage.getItem('digicore_remember_me') === 'true') {
-        localStorage.setItem('digicore_active_user', JSON.stringify(updatedCurr));
+      if (sessionStorage.getItem('digicore_remember_me') === 'true') {
+        sessionStorage.setItem('digicore_active_user', JSON.stringify(updatedCurr));
       }
     }
 
@@ -521,9 +507,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const updated = { ...u, ...updates };
           if (currentUser?.id === id) {
             setCurrentUser(updated);
-            sessionStorage.setItem('digicore_active_user', JSON.stringify(updated));
-            if (localStorage.getItem('digicore_remember_me') === 'true') {
-              localStorage.setItem('digicore_active_user', JSON.stringify(updated));
+            if (sessionStorage.getItem('digicore_remember_me') === 'true') {
+              sessionStorage.setItem('digicore_active_user', JSON.stringify(updated));
             }
           }
           return updated;
