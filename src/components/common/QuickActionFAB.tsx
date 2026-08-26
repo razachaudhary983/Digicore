@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Plus, MessageSquare, DollarSign, UserPlus, X, Linkedin } from 'lucide-react';
+import { Plus, MessageSquare, DollarSign, UserPlus, X, Linkedin, Video } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { CustomSelect } from './CustomSelect';
 import { LeadChannel, LeadTemperature } from '../../types/crm';
+import { ScheduleMeetingModal } from './ScheduleMeetingModal';
 
 export const QuickActionFAB: React.FC = () => {
   const { addLead, addInvoice, clients, addCommentTask } = useCRM();
   const [isOpen, setIsOpen] = useState(false);
-  const [modalType, setModalType] = useState<'lead' | 'comment' | 'invoice' | null>(null);
+  const [modalType, setModalType] = useState<'lead' | 'comment' | 'invoice' | 'meeting' | null>(null);
 
   // Lead Form
   const [leadForm, setLeadForm] = useState({
@@ -109,6 +110,13 @@ export const QuickActionFAB: React.FC = () => {
       <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
         {isOpen && (
           <div className="flex flex-col gap-2 mb-2 animate-in fade-in slide-in-from-bottom-3 duration-200">
+            <button
+              onClick={() => setModalType('meeting')}
+              className="flex items-center gap-2.5 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl shadow-xl text-xs font-bold transition-all transform hover:-translate-x-1 cursor-pointer"
+            >
+              <Video className="w-4 h-4" />
+              <span>Schedule Google Meet Call</span>
+            </button>
             <button
               onClick={() => setModalType('lead')}
               className="flex items-center gap-2.5 px-4 py-2.5 bg-[#FFC700] hover:bg-[#ffcf1a] text-black rounded-2xl shadow-xl text-xs font-bold transition-all transform hover:-translate-x-1 cursor-pointer"
@@ -417,6 +425,15 @@ export const QuickActionFAB: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* SCHEDULE MEETING MODAL */}
+      <ScheduleMeetingModal
+        isOpen={modalType === 'meeting'}
+        onClose={() => {
+          setModalType(null);
+          setIsOpen(false);
+        }}
+      />
     </>
   );
 };

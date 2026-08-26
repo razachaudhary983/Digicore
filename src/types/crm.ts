@@ -70,13 +70,23 @@ export interface LinkedInCommentTask {
 export interface MeetingTask {
   id: string;
   leadId?: string;
+  clientId?: string;
+  title?: string;
   leadName: string;
+  clientName?: string;
   company: string;
   date: string;
   time: string;
+  startTime?: string;
+  endTime?: string;
+  durationMinutes?: number;
   status: 'Booked' | 'Completed' | 'No Show';
   outcome?: 'Proposal Required' | 'Negotiation' | 'Won' | 'Lost' | 'Pending';
   meetingLink?: string;
+  meetUrl?: string;
+  description?: string;
+  createdByName?: string;
+  createdAt?: string;
 }
 
 export interface Lead {

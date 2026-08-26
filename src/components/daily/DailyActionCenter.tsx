@@ -13,11 +13,15 @@ import {
   Check,
   ChevronRight,
   TrendingUp,
+  Download,
+  Copy,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { MeetingTask, ActivityTask } from '../../types/crm';
 import { DeleteGuardModal } from '../common/DeleteGuardModal';
 import { CustomSelect } from '../common/CustomSelect';
+import { ScheduleMeetingModal } from '../common/ScheduleMeetingModal';
+import { createGoogleCalendarUrl, downloadICSFile } from '../../utils/calendarUtils';
 
 export const DailyActionCenter: React.FC = () => {
   const {
@@ -26,7 +30,6 @@ export const DailyActionCenter: React.FC = () => {
     tasks,
     comments,
     toggleTaskComplete,
-    addMeeting,
     updateMeetingOutcome,
     deleteMeeting,
     toggleCommentStatus,
@@ -36,15 +39,8 @@ export const DailyActionCenter: React.FC = () => {
   const [meetingToDelete, setMeetingToDelete] = useState<MeetingTask | null>(null);
   const [meetingToRecordOutcome, setMeetingToRecordOutcome] = useState<MeetingTask | null>(null);
   const [selectedOutcome, setSelectedOutcome] = useState<MeetingTask['outcome']>('Proposal Required');
-
-  // Manual Schedule Meeting form state
-  const [newMeeting, setNewMeeting] = useState({
-    leadName: '',
-    company: '',
-    date: new Date().toISOString().split('T')[0],
-    time: '15:00',
-    meetingLink: 'https://meet.google.com',
-  });
+  const [meetingTab, setMeetingTab] = useState<'All' | 'Today' | 'Upcoming' | 'Completed'>('All');
+  const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -53,32 +49,22 @@ export const DailyActionCenter: React.FC = () => {
   const upcomingMeetings = meetings.filter(m => m.date > todayStr);
   const pastMeetings = meetings.filter(m => m.date < todayStr || m.status === 'Completed');
 
+  const filteredMeetings = meetings.filter(m => {
+    if (meetingTab === 'Today') return m.date === todayStr;
+    if (meetingTab === 'Upcoming') return m.date > todayStr && m.status !== 'Completed';
+    if (meetingTab === 'Completed') return m.status === 'Completed' || m.date < todayStr;
+    return true;
+  });
+
   const pendingComments = comments.filter(c => c.status === 'Pending');
   const hotLeadsDue = leads.filter(l => l.temperature === 'Hot' && l.followUpDate <= todayStr);
   const openTasks = tasks.filter(t => !t.completed);
 
-  const handleCreateMeetingSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMeeting.leadName || !newMeeting.company) return;
-
-    addMeeting({
-      leadName: newMeeting.leadName,
-      company: newMeeting.company,
-      date: newMeeting.date,
-      time: newMeeting.time,
-      meetingLink: newMeeting.meetingLink || 'https://meet.google.com',
-      status: 'Booked',
-      outcome: 'Pending',
-    });
-
-    setShowScheduleModal(false);
-    setNewMeeting({
-      leadName: '',
-      company: '',
-      date: new Date().toISOString().split('T')[0],
-      time: '15:00',
-      meetingLink: 'https://meet.google.com',
-    });
+  const handleCopyLink = (meeting: MeetingTask) => {
+    const link = meeting.meetUrl || meeting.meetingLink || 'https://meet.google.com';
+    navigator.clipboard.writeText(link);
+    setCopiedMeetingId(meeting.id);
+    setTimeout(() => setCopiedMeetingId(null), 2000);
   };
 
   const handleSaveOutcome = (e: React.FormEvent) => {
@@ -100,13 +86,13 @@ export const DailyActionCenter: React.FC = () => {
             </span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Real-time daily queue: scheduled Google Meet calls, hot lead follow-ups, and engagement tasks.
+            Real-time daily queue: scheduled Google Meet calls, calendar synchronization, hot lead follow-ups, and engagement tasks.
           </p>
         </div>
 
         <button
           onClick={() => setShowScheduleModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#FFC700] hover:bg-[#ffcf1a] text-black font-bold text-xs rounded-xl shadow-md shadow-[#FFC700]/20 transition-all cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#FFC700] hover:bg-[#ffcf1a] text-black font-bold text-xs rounded-xl shadow-md shadow-[#FFC700]/20 transition-all cursor-pointer"
         >
           <Video className="w-4 h-4" />
           <span>+ Schedule Meeting</span>
@@ -162,43 +148,63 @@ export const DailyActionCenter: React.FC = () => {
         <div className="lg:col-span-2 space-y-4">
           {/* Scheduled Calls Card */}
           <div className="bg-white dark:bg-[#121217] border border-slate-200 dark:border-[#23232c] rounded-2xl p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#23232c]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#23232c]">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center">
                   <Video className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Google Meet Calls Engine
+                    Google Meet & Calendar Events Engine
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    Direct meeting launches with instant Google Meet integration.
+                    Real-time synced calls with Google Meet auto-generation and dual calendar export.
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowScheduleModal(true)}
-                className="text-xs font-bold text-[#FFC700] hover:underline cursor-pointer"
-              >
-                + New Meeting
-              </button>
+
+              {/* Sub-Tabs for Meetings */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#181820] p-1 rounded-xl border border-slate-200 dark:border-[#2a2a36]">
+                {(['All', 'Today', 'Upcoming', 'Completed'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setMeetingTab(tab)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      meetingTab === tab
+                        ? 'bg-white dark:bg-[#23232f] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Meetings List */}
             <div className="space-y-3">
-              {meetings.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-xs">
-                  No meetings currently scheduled. Schedule one or set a lead to "Meeting Booked".
+              {filteredMeetings.length === 0 ? (
+                <div className="py-10 text-center text-slate-400 text-xs space-y-2">
+                  <Video className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 opacity-60" />
+                  <p>No meetings found under the "{meetingTab}" filter.</p>
+                  <button
+                    onClick={() => setShowScheduleModal(true)}
+                    className="text-xs font-bold text-[#FFC700] hover:underline cursor-pointer"
+                  >
+                    + Schedule New Google Meet Call
+                  </button>
                 </div>
               ) : (
-                meetings.map(meeting => {
+                filteredMeetings.map(meeting => {
                   const isPast = meeting.date < todayStr || meeting.status === 'Completed';
                   const isToday = meeting.date === todayStr;
+                  const meetLink = meeting.meetUrl || meeting.meetingLink || 'https://meet.google.com';
+                  const isCopied = copiedMeetingId === meeting.id;
 
                   return (
                     <div
                       key={meeting.id}
-                      className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      className={`p-4 rounded-2xl border transition-all space-y-3 ${
                         meeting.status === 'Completed'
                           ? 'bg-slate-50/60 dark:bg-[#181820]/40 border-slate-200 dark:border-[#23232c] opacity-75'
                           : isToday
@@ -206,70 +212,122 @@ export const DailyActionCenter: React.FC = () => {
                           : 'bg-slate-50 dark:bg-[#181820] border-slate-200 dark:border-[#2a2a36]'
                       }`}
                     >
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                          {meeting.time || '15:00'}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 dark:text-white text-sm">
-                              {meeting.leadName}
-                            </span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">
-                              · {meeting.company}
-                            </span>
-                            {isToday && (
-                              <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-[#FFC700]/20 text-amber-800 dark:text-[#FFC700] border border-[#FFC700]/30 animate-pulse">
-                                TODAY
-                              </span>
-                            )}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex flex-col items-center justify-center font-bold text-xs flex-shrink-0">
+                            <span>{meeting.time || '15:00'}</span>
+                            <span className="text-[9px] font-mono opacity-80">{meeting.durationMinutes || 45}m</span>
                           </div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
-                            <Clock className="w-3 h-3" /> {meeting.date} at {meeting.time}
-                            {meeting.outcome && meeting.outcome !== 'Pending' && (
-                              <span className="text-emerald-500 font-semibold">
-                                · Outcome: {meeting.outcome}
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-900 dark:text-white text-sm">
+                                {meeting.title || `${meeting.leadName} (${meeting.company})`}
                               </span>
-                            )}
-                          </p>
+                              {isToday && (
+                                <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-[#FFC700]/20 text-amber-800 dark:text-[#FFC700] border border-[#FFC700]/30 animate-pulse">
+                                  TODAY
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                {meeting.leadName}
+                              </span>
+                              <span>· {meeting.company}</span>
+                              <span>·</span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" /> {meeting.date} at {meeting.time}
+                              </span>
+                              {meeting.outcome && meeting.outcome !== 'Pending' && (
+                                <span className="text-emerald-500 font-semibold">
+                                  · Outcome: {meeting.outcome}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Actions: Direct Launch Google Meet in new tab */}
-                      <div className="flex items-center gap-2 justify-end">
-                        {meeting.status !== 'Completed' ? (
-                          <>
-                            <a
-                              href={meeting.meetingLink || 'https://meet.google.com'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
-                            >
-                              <Video className="w-3.5 h-3.5" />
-                              <span>Join Call</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-
+                        {/* Top-right Status / Delete */}
+                        <div className="flex items-center gap-1.5 self-end sm:self-center">
+                          {meeting.status === 'Completed' ? (
+                            <span className="px-2.5 py-1 text-[11px] font-bold rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Completed
+                            </span>
+                          ) : (
                             <button
                               onClick={() => setMeetingToRecordOutcome(meeting)}
-                              className="px-3 py-1.5 bg-slate-200 dark:bg-[#252533] hover:bg-slate-300 dark:hover:bg-[#2e2e3f] text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl cursor-pointer"
+                              className="px-2.5 py-1 bg-slate-200 dark:bg-[#252533] hover:bg-slate-300 dark:hover:bg-[#2e2e3f] text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl cursor-pointer"
                             >
                               Record Outcome
                             </button>
-                          </>
-                        ) : (
-                          <span className="px-3 py-1 text-xs font-bold rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5" /> Completed
-                          </span>
-                        )}
+                          )}
 
-                        <button
-                          onClick={() => setMeetingToDelete(meeting)}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
-                          title="Delete Meeting"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                          <button
+                            onClick={() => setMeetingToDelete(meeting)}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                            title="Delete Meeting"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Google Meet Link Bar & Dual Calendar Sync Actions */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2.5 border-t border-slate-200/60 dark:border-[#23232c]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[11px] font-semibold text-slate-400 flex-shrink-0">
+                            Meet Link:
+                          </span>
+                          <span className="font-mono text-xs text-purple-600 dark:text-purple-400 truncate font-semibold bg-purple-500/10 px-2 py-0.5 rounded-lg">
+                            {meetLink}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(meeting)}
+                            title="Copy Meet Link"
+                            className="p-1 text-slate-400 hover:text-purple-400 rounded-md cursor-pointer flex-shrink-0"
+                          >
+                            {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+
+                        {/* Calendar & Launch Controls */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Launch Google Meet */}
+                          <a
+                            href={meetLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <Video className="w-3.5 h-3.5" />
+                            <span>Join Meet</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+
+                          {/* 2. DUAL CALENDAR SYNC: DIRECT GOOGLE CALENDAR LINK */}
+                          <a
+                            href={createGoogleCalendarUrl(meeting)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                            title="Add directly to Google Calendar"
+                          >
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span>Google Cal</span>
+                          </a>
+
+                          {/* 2. DUAL CALENDAR SYNC: ICS FILE EXPORT */}
+                          <button
+                            type="button"
+                            onClick={() => downloadICSFile(meeting)}
+                            className="px-3 py-1.5 bg-slate-200 dark:bg-[#252533] hover:bg-slate-300 dark:hover:bg-[#2e2e3f] text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                            title="Download iCal (.ics) for Outlook / Apple Calendar"
+                          >
+                            <Download className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>.ICS</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -393,108 +451,11 @@ export const DailyActionCenter: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL: SCHEDULE NEW MEETING */}
-      {showScheduleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white dark:bg-[#121217] border border-purple-500/40 rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-purple-500/15 text-purple-500 flex items-center justify-center font-bold">
-                <Video className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Schedule Google Meet Call
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Configure date, time, and client details for the presentation call.
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleCreateMeetingSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Prospect / Client Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newMeeting.leadName}
-                  onChange={e => setNewMeeting({ ...newMeeting, leadName: e.target.value })}
-                  placeholder="e.g. Sarah Jenkins"
-                  className="w-full mt-1 bg-slate-50 dark:bg-[#181820] border border-slate-300 dark:border-[#2a2a36] focus:border-[#FFC700] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Company / Organization *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newMeeting.company}
-                  onChange={e => setNewMeeting({ ...newMeeting, company: e.target.value })}
-                  placeholder="e.g. Apex Health Corp"
-                  className="w-full mt-1 bg-slate-50 dark:bg-[#181820] border border-slate-300 dark:border-[#2a2a36] focus:border-[#FFC700] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={newMeeting.date}
-                    onChange={e => setNewMeeting({ ...newMeeting, date: e.target.value })}
-                    className="w-full mt-1 bg-slate-50 dark:bg-[#181820] border border-slate-300 dark:border-[#2a2a36] focus:border-[#FFC700] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Time *</label>
-                  <input
-                    type="time"
-                    required
-                    value={newMeeting.time}
-                    onChange={e => setNewMeeting({ ...newMeeting, time: e.target.value })}
-                    className="w-full mt-1 bg-slate-50 dark:bg-[#181820] border border-slate-300 dark:border-[#2a2a36] focus:border-[#FFC700] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Meeting URL Link
-                </label>
-                <input
-                  type="url"
-                  value={newMeeting.meetingLink}
-                  onChange={e => setNewMeeting({ ...newMeeting, meetingLink: e.target.value })}
-                  placeholder="https://meet.google.com/xxx-yyyy-zzz"
-                  className="w-full mt-1 bg-slate-50 dark:bg-[#181820] border border-slate-300 dark:border-[#2a2a36] focus:border-[#FFC700] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-[#23232c]">
-                <button
-                  type="button"
-                  onClick={() => setShowScheduleModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-md cursor-pointer"
-                >
-                  Book Meeting
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* 1. SCHEDULE NEW MEETING MODAL WITH GOOGLE MEET & DUAL CALENDAR SYNC */}
+      <ScheduleMeetingModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+      />
 
       {/* MODAL: RECORD MEETING OUTCOME */}
       {meetingToRecordOutcome && (
@@ -548,3 +509,4 @@ export const DailyActionCenter: React.FC = () => {
     </div>
   );
 };
+

@@ -1,6 +1,6 @@
 {
   "name": "DigiCore CRM",
-  "description": "Production-grade Agency CRM with LinkedIn and multi-channel outreach hubs, Daily Action Center, Kanban pipeline aggregator, and client finance management.",
+  "description": "Production-grade Agency CRM with real-time Firestore persistence, Google Meet link auto-generation, dual calendar sync (Google Calendar & .ics), Daily Action Center, Kanban pipeline aggregator, and client finance management.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

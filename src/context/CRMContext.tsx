@@ -11,6 +11,7 @@ import {
   ClientStatus,
 } from '../types/crm';
 import { db, handleFirestoreError, OperationType } from '../firebase';
+import { generateGoogleMeetLink } from '../utils/calendarUtils';
 import {
   collection,
   doc,
@@ -221,13 +222,22 @@ const initialMeetings: MeetingTask[] = [
   {
     id: 'meet-1',
     leadId: 'lead-1',
+    title: 'AI Automation Pitch & Demo Call: Sarah Jenkins',
     leadName: 'Sarah Jenkins',
+    clientName: 'Sarah Jenkins',
     company: 'Apex Health Corp',
     date: new Date().toISOString().split('T')[0],
     time: '15:30',
+    startTime: `${new Date().toISOString().split('T')[0]}T15:30:00`,
+    endTime: `${new Date().toISOString().split('T')[0]}T16:15:00`,
+    durationMinutes: 45,
     status: 'Booked',
     outcome: 'Pending',
-    meetingLink: 'https://meet.google.com',
+    meetUrl: 'https://meet.google.com/qxr-jtwb-kpm',
+    meetingLink: 'https://meet.google.com/qxr-jtwb-kpm',
+    description: 'Walkthrough of DigiCore automated lead generation and conversion pipeline.',
+    createdByName: 'Ali Raza (Admin)',
+    createdAt: new Date().toISOString(),
   }
 ];
 
@@ -381,7 +391,28 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!snapshot.empty) {
           const list: MeetingTask[] = [];
           snapshot.forEach(docSnap => {
-            list.push({ ...(docSnap.data() as MeetingTask), id: docSnap.id });
+            const data = docSnap.data() as any;
+            const targetName = data.clientName || data.leadName || 'Client';
+            const meetUrl = data.meetUrl || data.meetingLink || generateGoogleMeetLink();
+            const title = data.title || `Strategy & Demo Call: ${targetName} (${data.company || 'Client Org'})`;
+            
+            list.push({
+              ...data,
+              id: docSnap.id,
+              title,
+              leadName: targetName,
+              clientName: targetName,
+              company: data.company || 'Organization',
+              date: data.date || new Date().toISOString().split('T')[0],
+              time: data.time || '15:00',
+              durationMinutes: data.durationMinutes || 45,
+              meetUrl,
+              meetingLink: meetUrl,
+              status: data.status || 'Booked',
+              outcome: data.outcome || 'Pending',
+              description: data.description || `DigiCore CRM Client Presentation Call. Google Meet: ${meetUrl}`,
+              createdByName: data.createdByName || 'Ali Raza (Admin)',
+            });
           });
           setMeetings(list);
         } else {
@@ -892,13 +923,48 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Meeting Operations
   const addMeeting = async (meetingData: Omit<MeetingTask, 'id'>): Promise<MeetingTask> => {
+    const targetName = meetingData.clientName || meetingData.leadName || 'Client';
+    const meetUrl = meetingData.meetUrl || meetingData.meetingLink || generateGoogleMeetLink();
+    const title = meetingData.title || `Strategy & Demo Call: ${targetName} (${meetingData.company || 'Client Org'})`;
+    const durationMinutes = meetingData.durationMinutes || 45;
+
+    const dateStr = meetingData.date || new Date().toISOString().split('T')[0];
+    const timeStr = meetingData.time || '15:00';
+    
+    let startTime = `${dateStr}T${timeStr}:00`;
+    let endTime = `${dateStr}T${timeStr}:00`;
+    try {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      const startObj = new Date(year, month - 1, day, hours, minutes, 0);
+      const endObj = new Date(startObj.getTime() + durationMinutes * 60 * 1000);
+      startTime = startObj.toISOString();
+      endTime = endObj.toISOString();
+    } catch {
+      // fallback
+    }
+
     const newMeeting: MeetingTask = {
       ...meetingData,
       id: `meet-${Date.now()}`,
-      meetingLink: meetingData.meetingLink || 'https://meet.google.com',
+      title,
+      leadName: targetName,
+      clientName: targetName,
+      company: meetingData.company || 'Client Org',
+      date: dateStr,
+      time: timeStr,
+      durationMinutes,
+      startTime: meetingData.startTime || startTime,
+      endTime: meetingData.endTime || endTime,
+      meetUrl,
+      meetingLink: meetUrl,
       status: meetingData.status || 'Booked',
       outcome: meetingData.outcome || 'Pending',
+      description: meetingData.description || `DigiCore CRM Presentation & Strategy Call with ${targetName}. Join via Google Meet: ${meetUrl}`,
+      createdByName: meetingData.createdByName || 'Ali Raza (Admin)',
+      createdAt: new Date().toISOString(),
     };
+    
     setMeetings(prev => [newMeeting, ...prev]);
 
     try {
@@ -911,12 +977,12 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newTask: ActivityTask = {
       id: `task-${Date.now()}`,
       leadId: meetingData.leadId,
-      leadName: meetingData.leadName,
+      leadName: targetName,
       type: 'Meeting',
-      dueDate: meetingData.date,
+      dueDate: dateStr,
       completed: false,
       priority: 'High',
-      details: `Scheduled Pitch / Demo Call (${meetingData.time})`,
+      details: `${title} (${timeStr}) - ${meetUrl}`,
     };
     setTasks(prev => [newTask, ...prev]);
 

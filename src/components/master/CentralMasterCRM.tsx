@@ -11,12 +11,14 @@ import {
   ExternalLink,
   ChevronRight,
   Sparkles,
+  Video,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { Lead, LeadStatus, LeadTemperature, LeadChannel } from '../../types/crm';
 import { StatusBadge } from '../common/StatusBadge';
 import { CustomSelect } from '../common/CustomSelect';
 import { DeleteGuardModal } from '../common/DeleteGuardModal';
+import { ScheduleMeetingModal } from '../common/ScheduleMeetingModal';
 
 const STATUS_COLUMNS: LeadStatus[] = [
   'New',
@@ -52,6 +54,7 @@ export const CentralMasterCRM: React.FC = () => {
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null);
   const [activeLeadDetails, setActiveLeadDetails] = useState<Lead | null>(null);
+  const [leadToScheduleMeeting, setLeadToScheduleMeeting] = useState<Lead | null>(null);
 
   // New Lead Form
   const [newLead, setNewLead] = useState({
@@ -829,13 +832,24 @@ export const CentralMasterCRM: React.FC = () => {
               )}
             </div>
 
-            <div className="pt-4 border-t border-slate-200 dark:border-[#23232c] flex gap-2">
+            <div className="pt-4 border-t border-slate-200 dark:border-[#23232c] flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  setLeadToScheduleMeeting(activeLeadDetails);
+                  setActiveLeadDetails(null);
+                }}
+                className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Video className="w-3.5 h-3.5" />
+                Schedule Google Meet Call
+              </button>
+
               <button
                 onClick={() => {
                   setLeadToConvert(activeLeadDetails);
                   setActiveLeadDetails(null);
                 }}
-                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Trophy className="w-3.5 h-3.5" />
                 Convert to Won Client
@@ -843,6 +857,15 @@ export const CentralMasterCRM: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* SCHEDULE MEETING MODAL WITH GOOGLE MEET & CALENDAR AUTO-GENERATION */}
+      {leadToScheduleMeeting && (
+        <ScheduleMeetingModal
+          isOpen={!!leadToScheduleMeeting}
+          onClose={() => setLeadToScheduleMeeting(null)}
+          initialLead={leadToScheduleMeeting}
+        />
       )}
 
       {/* DELETE GUARD MODAL */}
