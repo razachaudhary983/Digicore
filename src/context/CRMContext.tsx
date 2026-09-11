@@ -64,215 +64,10 @@ interface CRMContextType {
   // Task Operations
   toggleTaskComplete: (id: string) => Promise<void>;
   rescheduleTask: (id: string, newDate: string) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
 }
 
 const CRMContext = createContext<CRMContextType | undefined>(undefined);
-
-const initialLeads: Lead[] = [
-  {
-    id: 'lead-1',
-    name: 'Sarah Jenkins',
-    company: 'Apex Health Corp',
-    jobTitle: 'CMO',
-    email: 's.jenkins@apexhealth.io',
-    phone: '+14155552671',
-    linkedInUrl: 'https://linkedin.com/in/sarahjenkins-apex',
-    channel: 'LinkedIn',
-    temperature: 'Hot',
-    status: 'Meeting Booked',
-    estimatedValue: 4500,
-    followUpDate: new Date().toISOString().split('T')[0],
-    createdAt: '2025-02-15',
-    connectionStatus: 'Connected',
-    notes: 'Interested in AI Automated lead gen workflows.',
-  },
-  {
-    id: 'lead-2',
-    name: 'Tariq Mehmood',
-    company: 'Greenline Logistics',
-    jobTitle: 'Managing Director',
-    email: 'tariq@greenline.pk',
-    phone: '+923001234567',
-    linkedInUrl: 'https://linkedin.com/in/tariq-greenline',
-    channel: 'Google Maps',
-    temperature: 'Warm',
-    status: 'Qualified',
-    estimatedValue: 2200,
-    followUpDate: new Date().toISOString().split('T')[0],
-    createdAt: '2025-02-18',
-    websiteAvailable: true,
-    socialMediaAvailable: false,
-    location: 'Lahore, Pakistan',
-    notes: 'No Meta Pixel found on site. High scope for Web & Ads.',
-  },
-  {
-    id: 'lead-3',
-    name: 'Elena Rostova',
-    company: 'Nordic FinTech',
-    jobTitle: 'VP Growth',
-    email: 'elena@nordicfin.se',
-    phone: '+46812345678',
-    linkedInUrl: 'https://linkedin.com/in/elena-rostova',
-    channel: 'LinkedIn',
-    temperature: 'Hot',
-    status: 'Proposal Sent',
-    estimatedValue: 6000,
-    followUpDate: '2025-02-20',
-    createdAt: '2025-02-10',
-    connectionStatus: 'Connected',
-    notes: 'Sent $6k/mo Retainer proposal for AI & Paid Acquisition.',
-  },
-  {
-    id: 'lead-4',
-    name: 'David Vance',
-    company: 'Vance Dental Group',
-    jobTitle: 'Owner / Principal',
-    email: 'david@vancedental.com',
-    phone: '+13125550199',
-    channel: 'Cold Email',
-    temperature: 'Cold',
-    status: 'New',
-    estimatedValue: 1800,
-    followUpDate: '2025-02-25',
-    createdAt: '2025-02-19',
-    notes: 'First touchpoint via cold email sequence #1.',
-  }
-];
-
-const initialClients: ClientProfile[] = [
-  {
-    id: 'cli-1',
-    leadId: 'lead-won-0',
-    name: 'Marcus Sterling',
-    company: 'Sterling Capital Advisors',
-    email: 'marcus@sterlingcap.com',
-    phone: '+12125559840',
-    serviceCategory: 'Paid Acquisition',
-    monthlyRetainer: 5000,
-    startDate: '2025-01-10',
-    status: 'Active',
-  },
-  {
-    id: 'cli-2',
-    name: 'Amina Khan',
-    company: 'Zenith Aesthetics',
-    email: 'amina@zenithaesthetics.pk',
-    phone: '+923219988776',
-    serviceCategory: 'Social Media Growth',
-    monthlyRetainer: 2500,
-    startDate: '2025-02-01',
-    status: 'Active',
-  }
-];
-
-const initialInvoices: Invoice[] = [
-  {
-    id: 'inv-101',
-    clientId: 'cli-1',
-    clientName: 'Sterling Capital Advisors',
-    service: 'Paid Acquisition - Monthly Retainer',
-    amount: 5000,
-    sentDate: '2025-02-10',
-    dueDate: '2025-02-17',
-    datePaid: '2025-02-12',
-    status: 'Paid',
-    paymentMethod: 'Payoneer',
-    invoiceNumber: 'INV-2025-001',
-  },
-  {
-    id: 'inv-102',
-    clientId: 'cli-2',
-    clientName: 'Zenith Aesthetics',
-    service: 'Social Media Growth - Setup & Retainer',
-    amount: 2500,
-    sentDate: '2025-02-14',
-    dueDate: '2025-02-21',
-    status: 'Pending',
-    paymentMethod: 'Meezan Bank',
-    invoiceNumber: 'INV-2025-002',
-  }
-];
-
-const initialComments: LinkedInCommentTask[] = [
-  {
-    id: 'comm-1',
-    leadName: 'Sarah Jenkins',
-    profileUrl: 'https://linkedin.com/in/sarahjenkins-apex',
-    postUrl: 'https://linkedin.com/posts/sarahjenkins-apex_ai-healthcare-post',
-    dueDate: new Date().toISOString().split('T')[0],
-    status: 'Pending',
-    pipelineStatus: 'Pending',
-    company: 'Apex Health Corp',
-    notes: 'Drop insightful comment regarding LLM compliance.',
-  },
-  {
-    id: 'comm-2',
-    leadName: 'Elena Rostova',
-    profileUrl: 'https://linkedin.com/in/elena-rostova',
-    postUrl: 'https://linkedin.com/posts/elena-nordic-growth-post',
-    dueDate: new Date().toISOString().split('T')[0],
-    status: 'Completed',
-    pipelineStatus: 'Commented',
-    company: 'Nordic FinTech',
-    notes: 'Praised their Series B announcement.',
-  }
-];
-
-const initialMeetings: MeetingTask[] = [
-  {
-    id: 'meet-1',
-    leadId: 'lead-1',
-    title: 'AI Automation Pitch & Demo Call: Sarah Jenkins',
-    leadName: 'Sarah Jenkins',
-    clientName: 'Sarah Jenkins',
-    company: 'Apex Health Corp',
-    date: new Date().toISOString().split('T')[0],
-    time: '15:30',
-    startTime: `${new Date().toISOString().split('T')[0]}T15:30:00`,
-    endTime: `${new Date().toISOString().split('T')[0]}T16:15:00`,
-    durationMinutes: 45,
-    status: 'Booked',
-    outcome: 'Pending',
-    meetUrl: 'https://meet.google.com/qxr-jtwb-kpm',
-    meetingLink: 'https://meet.google.com/qxr-jtwb-kpm',
-    description: 'Walkthrough of DigiCore automated lead generation and conversion pipeline.',
-    createdByName: 'Ali Raza (Admin)',
-    createdAt: new Date().toISOString(),
-  }
-];
-
-const initialTasks: ActivityTask[] = [
-  {
-    id: 'task-1',
-    leadId: 'lead-1',
-    leadName: 'Sarah Jenkins',
-    type: 'Meeting',
-    dueDate: new Date().toISOString().split('T')[0],
-    completed: false,
-    priority: 'High',
-    details: 'Product Demo & Architecture overview call',
-  },
-  {
-    id: 'task-2',
-    leadId: 'lead-2',
-    leadName: 'Tariq Mehmood',
-    type: 'Follow-up',
-    dueDate: new Date().toISOString().split('T')[0],
-    completed: false,
-    priority: 'Medium',
-    details: 'Follow up on WhatsApp audit presentation',
-  },
-  {
-    id: 'task-3',
-    leadId: 'lead-3',
-    leadName: 'Elena Rostova',
-    type: 'DM / Message',
-    dueDate: '2025-02-18',
-    completed: false,
-    priority: 'High',
-    details: 'Check if legal team reviewed proposal document',
-  }
-];
 
 export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Theme Management
@@ -292,7 +87,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const toggleTheme = () => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
 
-  // Main Live Cloud State (no mock state fallback)
+  // Main Live Cloud State - Firestore is the single source of truth (Empty Firestore = Empty CRM)
   const [leads, setLeads] = useState<Lead[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -324,24 +119,11 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubLeads = onSnapshot(
       collection(db, 'leads'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list: Lead[] = [];
-          snapshot.forEach(docSnap => {
-            list.push({ ...(docSnap.data() as Lead), id: docSnap.id });
-          });
-          setLeads(list);
-        } else {
-          // Seed initial baseline records into live Firestore database if collection is empty
-          initialLeads.forEach(async (item) => {
-            try {
-              await setDoc(doc(db, 'leads', item.id), item);
-              await syncKanbanCard(item);
-            } catch (err) {
-              handleFirestoreError(err, OperationType.CREATE, `leads/${item.id}`);
-            }
-          });
-          setLeads(initialLeads);
-        }
+        const list: Lead[] = [];
+        snapshot.forEach(docSnap => {
+          list.push({ ...(docSnap.data() as Lead), id: docSnap.id });
+        });
+        setLeads(list);
         setIsSyncing(false);
       },
       (error) => {
@@ -358,22 +140,11 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubInvoices = onSnapshot(
       collection(db, 'invoices'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list: Invoice[] = [];
-          snapshot.forEach(docSnap => {
-            list.push({ ...(docSnap.data() as Invoice), id: docSnap.id });
-          });
-          setInvoices(list);
-        } else {
-          initialInvoices.forEach(async (item) => {
-            try {
-              await setDoc(doc(db, 'invoices', item.id), item);
-            } catch (err) {
-              handleFirestoreError(err, OperationType.CREATE, `invoices/${item.id}`);
-            }
-          });
-          setInvoices(initialInvoices);
-        }
+        const list: Invoice[] = [];
+        snapshot.forEach(docSnap => {
+          list.push({ ...(docSnap.data() as Invoice), id: docSnap.id });
+        });
+        setInvoices(list);
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'invoices');
@@ -388,43 +159,32 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubEvents = onSnapshot(
       collection(db, 'events'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list: MeetingTask[] = [];
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data() as any;
-            const targetName = data.clientName || data.leadName || 'Client';
-            const meetUrl = data.meetUrl || data.meetingLink || generateGoogleMeetLink();
-            const title = data.title || `Strategy & Demo Call: ${targetName} (${data.company || 'Client Org'})`;
-            
-            list.push({
-              ...data,
-              id: docSnap.id,
-              title,
-              leadName: targetName,
-              clientName: targetName,
-              company: data.company || 'Organization',
-              date: data.date || new Date().toISOString().split('T')[0],
-              time: data.time || '15:00',
-              durationMinutes: data.durationMinutes || 45,
-              meetUrl,
-              meetingLink: meetUrl,
-              status: data.status || 'Booked',
-              outcome: data.outcome || 'Pending',
-              description: data.description || `DigiCore CRM Client Presentation Call. Google Meet: ${meetUrl}`,
-              createdByName: data.createdByName || 'Ali Raza (Admin)',
-            });
+        const list: MeetingTask[] = [];
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data() as any;
+          const targetName = data.clientName || data.leadName || 'Client';
+          const meetUrl = data.meetUrl || data.meetingLink || generateGoogleMeetLink();
+          const title = data.title || `Strategy & Demo Call: ${targetName} (${data.company || 'Client Org'})`;
+          
+          list.push({
+            ...data,
+            id: docSnap.id,
+            title,
+            leadName: targetName,
+            clientName: targetName,
+            company: data.company || 'Organization',
+            date: data.date || new Date().toISOString().split('T')[0],
+            time: data.time || '15:00',
+            durationMinutes: data.durationMinutes || 45,
+            meetUrl,
+            meetingLink: meetUrl,
+            status: data.status || 'Booked',
+            outcome: data.outcome || 'Pending',
+            description: data.description || `DigiCore CRM Client Presentation Call. Google Meet: ${meetUrl}`,
+            createdByName: data.createdByName || 'Ali Raza (Admin)',
           });
-          setMeetings(list);
-        } else {
-          initialMeetings.forEach(async (item) => {
-            try {
-              await setDoc(doc(db, 'events', item.id), item);
-            } catch (err) {
-              handleFirestoreError(err, OperationType.CREATE, `events/${item.id}`);
-            }
-          });
-          setMeetings(initialMeetings);
-        }
+        });
+        setMeetings(list);
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'events');
@@ -439,22 +199,11 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubClients = onSnapshot(
       collection(db, 'clients'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list: ClientProfile[] = [];
-          snapshot.forEach(docSnap => {
-            list.push({ ...(docSnap.data() as ClientProfile), id: docSnap.id });
-          });
-          setClients(list);
-        } else {
-          initialClients.forEach(async (item) => {
-            try {
-              await setDoc(doc(db, 'clients', item.id), item);
-            } catch (err) {
-              handleFirestoreError(err, OperationType.CREATE, `clients/${item.id}`);
-            }
-          });
-          setClients(initialClients);
-        }
+        const list: ClientProfile[] = [];
+        snapshot.forEach(docSnap => {
+          list.push({ ...(docSnap.data() as ClientProfile), id: docSnap.id });
+        });
+        setClients(list);
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'clients');
@@ -469,28 +218,17 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubComments = onSnapshot(
       collection(db, 'comments'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list: LinkedInCommentTask[] = [];
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data() as any;
-            list.push({
-              ...data,
-              id: docSnap.id,
-              profileUrl: data.profileUrl || `https://linkedin.com/in/${data.leadName?.toLowerCase().replace(/\s+/g, '-')}`,
-              pipelineStatus: data.pipelineStatus || (data.status === 'Completed' ? 'Commented' : 'Pending'),
-            });
+        const list: LinkedInCommentTask[] = [];
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data() as any;
+          list.push({
+            ...data,
+            id: docSnap.id,
+            profileUrl: data.profileUrl || `https://linkedin.com/in/${data.leadName?.toLowerCase().replace(/\s+/g, '-')}`,
+            pipelineStatus: data.pipelineStatus || (data.status === 'Completed' ? 'Commented' : 'Pending'),
           });
-          setComments(list);
-        } else {
-          initialComments.forEach(async (item) => {
-            try {
-              await setDoc(doc(db, 'comments', item.id), item);
-            } catch (err) {
-              handleFirestoreError(err, OperationType.CREATE, `comments/${item.id}`);
-            }
-          });
-          setComments(initialComments);
-        }
+        });
+        setComments(list);
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'comments');
@@ -505,22 +243,11 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubTasks = onSnapshot(
       collection(db, 'tasks'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list: ActivityTask[] = [];
-          snapshot.forEach(docSnap => {
-            list.push({ ...(docSnap.data() as ActivityTask), id: docSnap.id });
-          });
-          setTasks(list);
-        } else {
-          initialTasks.forEach(async (item) => {
-            try {
-              await setDoc(doc(db, 'tasks', item.id), item);
-            } catch (err) {
-              handleFirestoreError(err, OperationType.CREATE, `tasks/${item.id}`);
-            }
-          });
-          setTasks(initialTasks);
-        }
+        const list: ActivityTask[] = [];
+        snapshot.forEach(docSnap => {
+          list.push({ ...(docSnap.data() as ActivityTask), id: docSnap.id });
+        });
+        setTasks(list);
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'tasks');
@@ -642,6 +369,17 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await deleteDoc(doc(db, 'leads', id));
       await deleteDoc(doc(db, 'kanban', id));
+
+      // Clean up linked tasks in Firestore
+      const linkedTasks = tasks.filter(t => t.leadId === id);
+      for (const t of linkedTasks) {
+        deleteDoc(doc(db, 'tasks', t.id)).catch(() => {});
+      }
+      // Clean up linked meetings in Firestore
+      const linkedMeetings = meetings.filter(m => m.leadId === id);
+      for (const m of linkedMeetings) {
+        deleteDoc(doc(db, 'events', m.id)).catch(() => {});
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `leads/${id}`);
     }
@@ -1056,6 +794,16 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const deleteTask = async (id: string): Promise<void> => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+
+    try {
+      await deleteDoc(doc(db, 'tasks', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `tasks/${id}`);
+    }
+  };
+
   return (
     <CRMContext.Provider
       value={{
@@ -1089,6 +837,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteMeeting,
         toggleTaskComplete,
         rescheduleTask,
+        deleteTask,
       }}
     >
       {children}

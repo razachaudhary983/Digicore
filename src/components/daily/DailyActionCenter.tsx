@@ -30,6 +30,7 @@ export const DailyActionCenter: React.FC = () => {
     tasks,
     comments,
     toggleTaskComplete,
+    deleteTask,
     updateMeetingOutcome,
     deleteMeeting,
     toggleCommentStatus,
@@ -421,31 +422,55 @@ export const DailyActionCenter: React.FC = () => {
             </h3>
 
             <div className="space-y-2">
-              {tasks.map(task => (
-                <div
-                  key={task.id}
-                  onClick={() => toggleTaskComplete(task.id)}
-                  className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
-                    task.completed
-                      ? 'bg-slate-50/50 dark:bg-[#181820]/40 border-slate-200 dark:border-[#23232c] opacity-60 line-through text-slate-400'
-                      : 'bg-slate-50 dark:bg-[#181820] border-slate-200 dark:border-[#2a2a36] hover:border-[#FFC700]/50'
-                  }`}
-                >
+              {tasks.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No pending action tasks.
+                </div>
+              ) : (
+                tasks.map(task => (
                   <div
-                    className={`w-4 h-4 rounded-md mt-0.5 border flex items-center justify-center flex-shrink-0 ${
+                    key={task.id}
+                    className={`flex items-start justify-between gap-2.5 p-2.5 rounded-xl border transition-all group ${
                       task.completed
-                        ? 'bg-emerald-500 border-emerald-500 text-white'
-                        : 'border-slate-300 dark:border-slate-600'
+                        ? 'bg-slate-50/50 dark:bg-[#181820]/40 border-slate-200 dark:border-[#23232c] opacity-60 text-slate-400'
+                        : 'bg-slate-50 dark:bg-[#181820] border-slate-200 dark:border-[#2a2a36] hover:border-[#FFC700]/50'
                     }`}
                   >
-                    {task.completed && <Check className="w-3 h-3" />}
+                    <div
+                      onClick={() => toggleTaskComplete(task.id)}
+                      className="flex items-start gap-2.5 flex-1 min-w-0 cursor-pointer"
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-md mt-0.5 border flex items-center justify-center flex-shrink-0 ${
+                          task.completed
+                            ? 'bg-emerald-500 border-emerald-500 text-white'
+                            : 'border-slate-300 dark:border-slate-600'
+                        }`}
+                      >
+                        {task.completed && <Check className="w-3 h-3" />}
+                      </div>
+                      <div className="flex-1 min-w-0 text-xs">
+                        <span className={`font-semibold text-slate-900 dark:text-white ${task.completed ? 'line-through' : ''}`}>
+                          {task.leadName}
+                        </span>
+                        <p className={`text-[11px] text-slate-500 dark:text-slate-400 ${task.completed ? 'line-through' : ''}`}>
+                          {task.details}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteTask(task.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-500 rounded-md cursor-pointer transition-opacity"
+                      title="Delete Task"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0 text-xs">
-                    <span className="font-semibold text-slate-900 dark:text-white">{task.leadName}</span>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{task.details}</p>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
