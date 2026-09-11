@@ -18,8 +18,26 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   onSnapshot,
 } from 'firebase/firestore';
+
+/**
+ * Utility to strip undefined properties recursively so Firestore SDK never rejects writes.
+ */
+export const cleanForFirestore = <T extends Record<string, any>>(obj: T): Record<string, any> => {
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        result[key] = cleanForFirestore(value);
+      } else {
+        result[key] = value;
+      }
+    }
+  }
+  return result;
+};
 
 interface CRMContextType {
   leads: Lead[];
@@ -46,11 +64,13 @@ interface CRMContextType {
   
   // Finance Operations
   addInvoice: (invoice: Omit<Invoice, 'id' | 'dueDate' | 'invoiceNumber'>) => Promise<Invoice>;
+  updateInvoice: (id: string, updates: Partial<Invoice>) => Promise<void>;
   updateInvoiceStatus: (id: string, status: PaymentStatus) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
   
   // LinkedIn Commenting Operations
   addCommentTask: (task: Omit<LinkedInCommentTask, 'id'>) => Promise<LinkedInCommentTask>;
+  updateCommentTask: (id: string, updates: Partial<LinkedInCommentTask>) => Promise<void>;
   toggleCommentStatus: (id: string) => Promise<void>;
   convertCommentToLead: (commentId: string, leadData?: Partial<Lead>) => Promise<void>;
   markCommentDead: (commentId: string) => Promise<void>;
@@ -58,13 +78,19 @@ interface CRMContextType {
   
   // Meeting Operations
   addMeeting: (meeting: Omit<MeetingTask, 'id'>) => Promise<MeetingTask>;
+  updateMeeting: (id: string, updates: Partial<MeetingTask>) => Promise<void>;
   updateMeetingOutcome: (id: string, status: MeetingTask['status'], outcome?: MeetingTask['outcome']) => Promise<void>;
   deleteMeeting: (id: string) => Promise<void>;
   
   // Task Operations
+  addTask: (task: Omit<ActivityTask, 'id'>) => Promise<ActivityTask>;
+  updateTask: (id: string, updates: Partial<ActivityTask>) => Promise<void>;
   toggleTaskComplete: (id: string) => Promise<void>;
   rescheduleTask: (id: string, newDate: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+
+  // Kanban sync
+  syncKanbanCard: (lead: Lead) => Promise<void>;
 }
 
 const CRMContext = createContext<CRMContextType | undefined>(undefined);
@@ -99,16 +125,18 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Helper to sync kanban card to Firestore
   const syncKanbanCard = async (lead: Lead) => {
     try {
-      await setDoc(doc(db, 'kanban', lead.id), {
+      const data = cleanForFirestore({
         id: lead.id,
         leadId: lead.id,
         name: lead.name,
         company: lead.company,
         stage: lead.status,
+        status: lead.status,
         value: lead.estimatedValue,
         temperature: lead.temperature,
         updatedAt: new Date().toISOString(),
       });
+      await setDoc(doc(db, 'kanban', lead.id), data);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `kanban/${lead.id}`);
     }
@@ -268,7 +296,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLeads(prev => [newLead, ...prev]);
 
     try {
-      await setDoc(doc(db, 'leads', newLead.id), newLead);
+      await setDoc(doc(db, 'leads', newLead.id), cleanForFirestore(newLead));
       await syncKanbanCard(newLead);
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `leads/${newLead.id}`);
@@ -288,7 +316,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       setTasks(prev => [newTask, ...prev]);
       try {
-        await setDoc(doc(db, 'tasks', newTask.id), newTask);
+        await setDoc(doc(db, 'tasks', newTask.id), cleanForFirestore(newTask));
       } catch (err) {
         handleFirestoreError(err, OperationType.CREATE, `tasks/${newTask.id}`);
       }
@@ -310,7 +338,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       setMeetings(prev => [newMeet, ...prev]);
       try {
-        await setDoc(doc(db, 'events', newMeet.id), newMeet);
+        await setDoc(doc(db, 'events', newMeet.id), cleanForFirestore(newMeet));
       } catch (err) {
         handleFirestoreError(err, OperationType.CREATE, `events/${newMeet.id}`);
       }
@@ -323,7 +351,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLeads(prev => prev.map(l => (l.id === id ? { ...l, ...updates } : l)));
 
     try {
-      await updateDoc(doc(db, 'leads', id), updates);
+      await updateDoc(doc(db, 'leads', id), cleanForFirestore(updates));
       const targetLead = leads.find(l => l.id === id);
       if (targetLead) {
         await syncKanbanCard({ ...targetLead, ...updates });
@@ -352,7 +380,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           setMeetings(prev => [newMeet, ...prev]);
           try {
-            await setDoc(doc(db, 'events', newMeet.id), newMeet);
+            await setDoc(doc(db, 'events', newMeet.id), cleanForFirestore(newMeet));
           } catch (err) {
             handleFirestoreError(err, OperationType.CREATE, `events/${newMeet.id}`);
           }
@@ -412,7 +440,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setClients(prev => [newClient, ...prev]);
 
     try {
-      await setDoc(doc(db, 'clients', newClient.id), newClient);
+      await setDoc(doc(db, 'clients', newClient.id), cleanForFirestore(newClient));
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `clients/${newClient.id}`);
     }
@@ -424,7 +452,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setClients(prev => prev.map(c => (c.id === id ? { ...c, ...updates } : c)));
 
     try {
-      await updateDoc(doc(db, 'clients', id), updates);
+      await updateDoc(doc(db, 'clients', id), cleanForFirestore(updates));
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `clients/${id}`);
     }
@@ -460,7 +488,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setClients(prev => [newClient, ...prev]);
 
     try {
-      await setDoc(doc(db, 'clients', newClient.id), newClient);
+      await setDoc(doc(db, 'clients', newClient.id), cleanForFirestore(newClient));
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `clients/${newClient.id}`);
     }
@@ -485,7 +513,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInvoices(prev => [autoInvoice, ...prev]);
 
     try {
-      await setDoc(doc(db, 'invoices', autoInvoice.id), autoInvoice);
+      await setDoc(doc(db, 'invoices', autoInvoice.id), cleanForFirestore(autoInvoice));
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `invoices/${autoInvoice.id}`);
     }
@@ -509,7 +537,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInvoices(prev => [newInv, ...prev]);
 
     try {
-      await setDoc(doc(db, 'invoices', newInv.id), newInv);
+      await setDoc(doc(db, 'invoices', newInv.id), cleanForFirestore(newInv));
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `invoices/${newInv.id}`);
     }
@@ -517,12 +545,18 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newInv;
   };
 
+  const updateInvoice = async (id: string, updates: Partial<Invoice>): Promise<void> => {
+    setInvoices(prev => prev.map(inv => (inv.id === id ? { ...inv, ...updates } : inv)));
+
+    try {
+      await updateDoc(doc(db, 'invoices', id), cleanForFirestore(updates));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `invoices/${id}`);
+    }
+  };
+
   const updateInvoiceStatus = async (id: string, status: PaymentStatus): Promise<void> => {
     const todayStr = new Date().toISOString().split('T')[0];
-    const updates: Partial<Invoice> = {
-      status,
-      datePaid: status === 'Paid' ? todayStr : undefined,
-    };
 
     setInvoices(prev =>
       prev.map(inv => {
@@ -538,7 +572,17 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     try {
-      await updateDoc(doc(db, 'invoices', id), updates);
+      if (status === 'Paid') {
+        await updateDoc(doc(db, 'invoices', id), {
+          status: 'Paid',
+          datePaid: todayStr,
+        });
+      } else {
+        await updateDoc(doc(db, 'invoices', id), {
+          status,
+          datePaid: deleteField(),
+        });
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `invoices/${id}`);
     }
@@ -565,12 +609,22 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setComments(prev => [newTask, ...prev]);
 
     try {
-      await setDoc(doc(db, 'comments', newTask.id), newTask);
+      await setDoc(doc(db, 'comments', newTask.id), cleanForFirestore(newTask));
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `comments/${newTask.id}`);
     }
 
     return newTask;
+  };
+
+  const updateCommentTask = async (id: string, updates: Partial<LinkedInCommentTask>): Promise<void> => {
+    setComments(prev => prev.map(c => (c.id === id ? { ...c, ...updates } : c)));
+
+    try {
+      await updateDoc(doc(db, 'comments', id), cleanForFirestore(updates));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `comments/${id}`);
+    }
   };
 
   const toggleCommentStatus = async (id: string): Promise<void> => {
@@ -706,7 +760,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMeetings(prev => [newMeeting, ...prev]);
 
     try {
-      await setDoc(doc(db, 'events', newMeeting.id), newMeeting);
+      await setDoc(doc(db, 'events', newMeeting.id), cleanForFirestore(newMeeting));
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `events/${newMeeting.id}`);
     }
@@ -725,12 +779,22 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTasks(prev => [newTask, ...prev]);
 
     try {
-      await setDoc(doc(db, 'tasks', newTask.id), newTask);
+      await setDoc(doc(db, 'tasks', newTask.id), cleanForFirestore(newTask));
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `tasks/${newTask.id}`);
     }
 
     return newMeeting;
+  };
+
+  const updateMeeting = async (id: string, updates: Partial<MeetingTask>): Promise<void> => {
+    setMeetings(prev => prev.map(m => (m.id === id ? { ...m, ...updates } : m)));
+
+    try {
+      await updateDoc(doc(db, 'events', id), cleanForFirestore(updates));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `events/${id}`);
+    }
   };
 
   const updateMeetingOutcome = async (
@@ -743,10 +807,9 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     try {
-      await updateDoc(doc(db, 'events', id), {
-        status,
-        ...(outcome ? { outcome } : {}),
-      });
+      const updates: any = { status };
+      if (outcome) updates.outcome = outcome;
+      await updateDoc(doc(db, 'events', id), cleanForFirestore(updates));
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `events/${id}`);
     }
@@ -763,6 +826,32 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Action Center Operations
+  const addTask = async (taskData: Omit<ActivityTask, 'id'>): Promise<ActivityTask> => {
+    const newTask: ActivityTask = {
+      ...taskData,
+      id: `task-${Date.now()}`,
+    };
+    setTasks(prev => [newTask, ...prev]);
+
+    try {
+      await setDoc(doc(db, 'tasks', newTask.id), cleanForFirestore(newTask));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `tasks/${newTask.id}`);
+    }
+
+    return newTask;
+  };
+
+  const updateTask = async (id: string, updates: Partial<ActivityTask>): Promise<void> => {
+    setTasks(prev => prev.map(t => (t.id === id ? { ...t, ...updates } : t)));
+
+    try {
+      await updateDoc(doc(db, 'tasks', id), cleanForFirestore(updates));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `tasks/${id}`);
+    }
+  };
+
   const toggleTaskComplete = async (id: string): Promise<void> => {
     let nextVal = false;
     setTasks(prev =>
@@ -825,19 +914,25 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteClient,
         createClientFromWonLead,
         addInvoice,
+        updateInvoice,
         updateInvoiceStatus,
         deleteInvoice,
         addCommentTask,
+        updateCommentTask,
         toggleCommentStatus,
         convertCommentToLead,
         markCommentDead,
         deleteCommentTask,
         addMeeting,
+        updateMeeting,
         updateMeetingOutcome,
         deleteMeeting,
+        addTask,
+        updateTask,
         toggleTaskComplete,
         rescheduleTask,
         deleteTask,
+        syncKanbanCard,
       }}
     >
       {children}

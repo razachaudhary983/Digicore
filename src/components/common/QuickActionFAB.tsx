@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { Plus, MessageSquare, DollarSign, UserPlus, X, Linkedin, Video } from 'lucide-react';
+import { Plus, MessageSquare, DollarSign, UserPlus, X, Linkedin, Video, CheckSquare } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { CustomSelect } from './CustomSelect';
-import { LeadChannel, LeadTemperature } from '../../types/crm';
+import { LeadChannel, LeadTemperature, ActivityTask } from '../../types/crm';
 import { ScheduleMeetingModal } from './ScheduleMeetingModal';
 
 export const QuickActionFAB: React.FC = () => {
-  const { addLead, addInvoice, clients, addCommentTask } = useCRM();
+  const { addLead, addInvoice, clients, addCommentTask, addTask } = useCRM();
   const [isOpen, setIsOpen] = useState(false);
-  const [modalType, setModalType] = useState<'lead' | 'comment' | 'invoice' | 'meeting' | null>(null);
+  const [modalType, setModalType] = useState<'lead' | 'comment' | 'invoice' | 'meeting' | 'task' | null>(null);
 
   // Lead Form
   const [leadForm, setLeadForm] = useState({
@@ -40,6 +40,37 @@ export const QuickActionFAB: React.FC = () => {
     sentDate: new Date().toISOString().split('T')[0],
     paymentMethod: 'Meezan Bank',
   });
+
+  // Task Form
+  const [taskForm, setTaskForm] = useState({
+    leadName: '',
+    type: 'Follow-up' as ActivityTask['type'],
+    dueDate: new Date().toISOString().split('T')[0],
+    priority: 'Medium' as ActivityTask['priority'],
+    details: '',
+  });
+
+  const handleTaskSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskForm.leadName) return;
+    addTask({
+      leadName: taskForm.leadName,
+      type: taskForm.type,
+      dueDate: taskForm.dueDate,
+      priority: taskForm.priority,
+      details: taskForm.details,
+      completed: false,
+    });
+    setModalType(null);
+    setIsOpen(false);
+    setTaskForm({
+      leadName: '',
+      type: 'Follow-up',
+      dueDate: new Date().toISOString().split('T')[0],
+      priority: 'Medium',
+      details: '',
+    });
+  };
 
   const handleLeadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,6 +163,13 @@ export const QuickActionFAB: React.FC = () => {
               <span>Log LinkedIn Comment</span>
             </button>
             <button
+              onClick={() => setModalType('task')}
+              className="flex items-center gap-2.5 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl shadow-xl text-xs font-bold transition-all transform hover:-translate-x-1 cursor-pointer"
+            >
+              <CheckSquare className="w-4 h-4" />
+              <span>Log Action Task</span>
+            </button>
+            <button
               onClick={() => setModalType('invoice')}
               className="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-xl text-xs font-bold transition-all transform hover:-translate-x-1 cursor-pointer"
             >
@@ -163,6 +201,7 @@ export const QuickActionFAB: React.FC = () => {
                 {modalType === 'lead' && <><UserPlus className="text-[#FFC700]" /> Log New Lead</>}
                 {modalType === 'comment' && <><Linkedin className="text-sky-500" /> Log LinkedIn Prospect</>}
                 {modalType === 'invoice' && <><DollarSign className="text-emerald-500" /> Generate Invoice</>}
+                {modalType === 'task' && <><CheckSquare className="text-amber-500" /> Log Action Task</>}
               </h3>
               <button
                 onClick={() => setModalType(null)}
@@ -418,6 +457,81 @@ export const QuickActionFAB: React.FC = () => {
                     className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md cursor-pointer"
                   >
                     Generate Invoice
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Modal: Task Entry */}
+            {modalType === 'task' && (
+              <form onSubmit={handleTaskSubmit} className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Contact / Lead / Subject *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={taskForm.leadName}
+                    onChange={e => setTaskForm({ ...taskForm, leadName: e.target.value })}
+                    placeholder="e.g. Follow up with Imran Khan"
+                    className="w-full mt-1 bg-slate-50 dark:bg-[#181820] border border-slate-300 dark:border-[#2a2a36] focus:border-[#FFC700] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <CustomSelect
+                    label="Task Type"
+                    value={taskForm.type}
+                    options={['Follow-up', 'LinkedIn Comment', 'DM / Message', 'Meeting']}
+                    onChange={val => setTaskForm({ ...taskForm, type: val as ActivityTask['type'] })}
+                  />
+                  <CustomSelect
+                    label="Priority"
+                    value={taskForm.priority}
+                    options={['High', 'Medium', 'Low']}
+                    onChange={val => setTaskForm({ ...taskForm, priority: val as ActivityTask['priority'] })}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={taskForm.dueDate}
+                    onChange={e => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                    className="w-full mt-1 bg-slate-50 dark:bg-[#181820] border border-slate-300 dark:border-[#2a2a36] focus:border-[#FFC700] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Details / Instructions
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={taskForm.details}
+                    onChange={e => setTaskForm({ ...taskForm, details: e.target.value })}
+                    placeholder="Action points..."
+                    className="w-full mt-1 bg-slate-50 dark:bg-[#181820] border border-slate-300 dark:border-[#2a2a36] focus:border-[#FFC700] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-[#23232c]">
+                  <button
+                    type="button"
+                    onClick={() => setModalType(null)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-md cursor-pointer"
+                  >
+                    Save Action Task
                   </button>
                 </div>
               </form>

@@ -15,6 +15,8 @@ import {
   TrendingUp,
   Download,
   Copy,
+  Edit2,
+  X,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { MeetingTask, ActivityTask } from '../../types/crm';
@@ -29,6 +31,8 @@ export const DailyActionCenter: React.FC = () => {
     meetings,
     tasks,
     comments,
+    addTask,
+    updateTask,
     toggleTaskComplete,
     deleteTask,
     updateMeetingOutcome,
@@ -42,6 +46,18 @@ export const DailyActionCenter: React.FC = () => {
   const [selectedOutcome, setSelectedOutcome] = useState<MeetingTask['outcome']>('Proposal Required');
   const [meetingTab, setMeetingTab] = useState<'All' | 'Today' | 'Upcoming' | 'Completed'>('All');
   const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
+
+  // Task Modal State
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<ActivityTask | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<ActivityTask | null>(null);
+  const [taskForm, setTaskForm] = useState({
+    leadName: '',
+    type: 'Follow-up' as ActivityTask['type'],
+    dueDate: new Date().toISOString().split('T')[0],
+    priority: 'Medium' as ActivityTask['priority'],
+    details: '',
+  });
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -73,6 +89,57 @@ export const DailyActionCenter: React.FC = () => {
     if (!meetingToRecordOutcome) return;
     updateMeetingOutcome(meetingToRecordOutcome.id, 'Completed', selectedOutcome);
     setMeetingToRecordOutcome(null);
+  };
+
+  const handleStartAddTask = () => {
+    setEditingTask(null);
+    setTaskForm({
+      leadName: '',
+      type: 'Follow-up',
+      dueDate: todayStr,
+      priority: 'Medium',
+      details: '',
+    });
+    setShowTaskModal(true);
+  };
+
+  const handleStartEditTask = (task: ActivityTask) => {
+    setEditingTask(task);
+    setTaskForm({
+      leadName: task.leadName,
+      type: task.type,
+      dueDate: task.dueDate,
+      priority: task.priority,
+      details: task.details,
+    });
+    setShowTaskModal(true);
+  };
+
+  const handleTaskSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskForm.leadName.trim()) return;
+
+    if (editingTask) {
+      updateTask(editingTask.id, {
+        leadName: taskForm.leadName,
+        type: taskForm.type,
+        dueDate: taskForm.dueDate,
+        priority: taskForm.priority,
+        details: taskForm.details,
+      });
+    } else {
+      addTask({
+        leadName: taskForm.leadName,
+        type: taskForm.type,
+        dueDate: taskForm.dueDate,
+        completed: false,
+        priority: taskForm.priority,
+        details: taskForm.details,
+      });
+    }
+
+    setShowTaskModal(false);
+    setEditingTask(null);
   };
 
   return (
@@ -416,10 +483,20 @@ export const DailyActionCenter: React.FC = () => {
 
           {/* Activity Tasks Checklist */}
           <div className="bg-white dark:bg-[#121217] border border-slate-200 dark:border-[#23232c] rounded-2xl p-5 shadow-sm space-y-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-[#23232c]">
-              <Sparkles className="w-4 h-4 text-[#FFC700]" />
-              Quick Action Checklist
-            </h3>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-[#23232c]">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#FFC700]" />
+                Quick Action Checklist
+              </h3>
+              <button
+                type="button"
+                onClick={handleStartAddTask}
+                className="px-2.5 py-1 text-xs bg-[#FFC700] hover:bg-[#ffcf1a] text-black font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Task
+              </button>
+            </div>
 
             <div className="space-y-2">
               {tasks.length === 0 ? (
@@ -450,24 +527,57 @@ export const DailyActionCenter: React.FC = () => {
                         {task.completed && <Check className="w-3 h-3" />}
                       </div>
                       <div className="flex-1 min-w-0 text-xs">
-                        <span className={`font-semibold text-slate-900 dark:text-white ${task.completed ? 'line-through' : ''}`}>
-                          {task.leadName}
-                        </span>
-                        <p className={`text-[11px] text-slate-500 dark:text-slate-400 ${task.completed ? 'line-through' : ''}`}>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`font-semibold text-slate-900 dark:text-white ${task.completed ? 'line-through' : ''}`}>
+                            {task.leadName}
+                          </span>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                              task.priority === 'High'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                : task.priority === 'Medium'
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20'
+                            }`}
+                          >
+                            {task.priority}
+                          </span>
+                          {task.dueDate && (
+                            <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                              <Clock className="w-2.5 h-2.5" />
+                              {task.dueDate}
+                            </span>
+                          )}
+                        </div>
+                        <p className={`text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 ${task.completed ? 'line-through' : ''}`}>
                           {task.details}
                         </p>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteTask(task.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-500 rounded-md cursor-pointer transition-opacity"
-                      title="Delete Task"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartEditTask(task);
+                        }}
+                        className="p-1 text-slate-400 hover:text-sky-500 rounded-md cursor-pointer transition-colors"
+                        title="Edit Task"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTaskToDelete(task);
+                        }}
+                        className="p-1 text-slate-400 hover:text-rose-500 rounded-md cursor-pointer transition-colors"
+                        title="Delete Task"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -481,6 +591,105 @@ export const DailyActionCenter: React.FC = () => {
         isOpen={showScheduleModal}
         onClose={() => setShowScheduleModal(false)}
       />
+
+      {/* MODAL: ADD / EDIT ACTIVITY TASK */}
+      {showTaskModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white dark:bg-[#121217] border border-slate-200 dark:border-[#23232c] rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-[#23232c]">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#FFC700]" />
+                {editingTask ? 'Edit Action Task' : 'Add New Action Task'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTaskModal(false);
+                  setEditingTask(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleTaskSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Contact / Lead / Subject *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={taskForm.leadName}
+                  onChange={e => setTaskForm({ ...taskForm, leadName: e.target.value })}
+                  placeholder="e.g., Alex Johnson (FinTech Corp)"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#181820] border border-slate-200 dark:border-[#2a2a36] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-[#FFC700]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <CustomSelect
+                  label="Task Type"
+                  value={taskForm.type}
+                  options={['Follow-up', 'LinkedIn Comment', 'DM / Message', 'Meeting']}
+                  onChange={val => setTaskForm({ ...taskForm, type: val as ActivityTask['type'] })}
+                />
+                <CustomSelect
+                  label="Priority"
+                  value={taskForm.priority}
+                  options={['High', 'Medium', 'Low']}
+                  onChange={val => setTaskForm({ ...taskForm, priority: val as ActivityTask['priority'] })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Due Date
+                </label>
+                <input
+                  type="date"
+                  value={taskForm.dueDate}
+                  onChange={e => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#181820] border border-slate-200 dark:border-[#2a2a36] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-[#FFC700]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Action Details & Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={taskForm.details}
+                  onChange={e => setTaskForm({ ...taskForm, details: e.target.value })}
+                  placeholder="e.g., Send revised proposal and contract draft"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#181820] border border-slate-200 dark:border-[#2a2a36] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-[#FFC700]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#23232c]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTaskModal(false);
+                    setEditingTask(null);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold bg-[#FFC700] hover:bg-[#ffcf1a] text-black rounded-xl cursor-pointer"
+                >
+                  {editingTask ? 'Save Changes' : 'Create Task'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: RECORD MEETING OUTCOME */}
       {meetingToRecordOutcome && (
@@ -518,7 +727,7 @@ export const DailyActionCenter: React.FC = () => {
         </div>
       )}
 
-      {/* DELETE GUARD */}
+      {/* DELETE GUARD FOR MEETING */}
       {meetingToDelete && (
         <DeleteGuardModal
           isOpen={!!meetingToDelete}
@@ -529,6 +738,20 @@ export const DailyActionCenter: React.FC = () => {
             setMeetingToDelete(null);
           }}
           onCancel={() => setMeetingToDelete(null)}
+        />
+      )}
+
+      {/* DELETE GUARD FOR TASK */}
+      {taskToDelete && (
+        <DeleteGuardModal
+          isOpen={!!taskToDelete}
+          title="Delete Action Task"
+          message={`Are you sure you want to delete the task for "${taskToDelete.leadName}"?`}
+          onConfirm={() => {
+            deleteTask(taskToDelete.id);
+            setTaskToDelete(null);
+          }}
+          onCancel={() => setTaskToDelete(null)}
         />
       )}
     </div>
